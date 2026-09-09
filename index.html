@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0057B7">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="UniBoard">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>UniBoard</title>
+<style>
+:root{--blue:#0057B7;--yellow:#FFD700;--bg:#f5f7fa;--card:#fff;--txt:#1e293b;--mut:#64748b;--line:#e2e8f0;--red:#dc2626;--green:#16a34a;--orange:#ea580c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);font-size:15px}
+header{position:sticky;top:0;z-index:20;background:var(--blue);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:17px}
+header .sub{font-size:11px;opacity:.8}
+main{max-width:900px;margin:0 auto;padding:14px;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:20;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px 4px;padding-bottom:calc(6px + env(safe-area-inset-bottom))}
+nav.bottom button{background:none;border:none;font-size:10px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 8px;position:relative}
+nav.bottom button .ic{font-size:20px}
+nav.bottom button.on{color:var(--blue);font-weight:600}
+nav.bottom .badge{position:absolute;top:0;right:2px;background:var(--red);color:#fff;font-size:9px;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+@media(min-width:768px){nav.bottom{display:none}main{padding-bottom:30px}nav.top{display:flex!important}}
+nav.top{display:none;position:sticky;top:0;z-index:20;background:var(--blue);padding:0 16px;gap:4px;overflow-x:auto}
+nav.top button{background:none;border:none;color:#fff;opacity:.75;padding:12px 14px;font-size:14px;white-space:nowrap;border-bottom:3px solid transparent}
+nav.top button.on{opacity:1;border-bottom-color:var(--yellow);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;background:var(--blue);color:#fff}
+.btn:active{opacity:.8}
+.btn.sec{background:#eef2f7;color:var(--txt)}
+.btn.danger{background:#fee2e2;color:var(--red)}
+.btn.green{background:var(--green)}
+.btn.sm{padding:6px 10px;font-size:12px;border-radius:8px}
+.btn:disabled{opacity:.5}
+.btn.wide{width:100%}
+.input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit;background:#fff;color:var(--txt)}
+textarea{resize:vertical}
+.label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin:10px 0 4px}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(min-width:768px){.grid2{grid-template-columns:1fr 1fr 1fr}}
+.chip{display:inline-block;font-size:10px;padding:3px 8px;border-radius:20px;background:#eef2f7;color:var(--mut);margin:2px 2px 2px 0}
+.chip.pub{background:#dcfce7;color:#15803d}.chip.err{background:#fee2e2;color:var(--red)}.chip.act{background:#ffedd5;color:var(--orange)}.chip.pend{background:#fef9c3;color:#a16207}.chip.pau{background:#e2e8f0;color:#475569}
+.h2{font-size:19px;font-weight:700;margin:4px 0 12px}
+.mut{color:var(--mut);font-size:13px}
+.empty{text-align:center;padding:50px 20px;color:var(--mut)}
+.empty .big{font-size:44px;margin-bottom:10px}
+.litem{display:flex;gap:10px;align-items:flex-start}
+.litem img{width:64px;height:64px;object-fit:cover;border-radius:10px;flex-shrink:0}
+.ltitle{font-weight:600;font-size:14px;line-height:1.3}
+.lprice{color:var(--mut);font-size:13px;margin-top:2px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.mgrid .m{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.mgrid .m img{width:100%;height:100%;object-fit:cover}
+.mgrid .m .star{position:absolute;top:4px;left:4px;font-size:14px}
+.mgrid .m .del{position:absolute;top:4px;right:4px;background:rgba(220,38,38,.9);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px}
+.mgrid .m .main{position:absolute;bottom:4px;right:4px;background:rgba(255,255,255,.95);border:none;border-radius:50%;width:26px;height:26px;font-size:13px}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:768px){.overlay{align-items:center}}
+.modal{background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:88vh;overflow:auto;padding:18px;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:768px){.modal{border-radius:18px}}
+.modal h3{margin:0 0 10px;font-size:17px}
+.pre{background:#f1f5f9;border-radius:10px;padding:10px;font-size:12px;white-space:pre-wrap;max-height:200px;overflow:auto;font-family:ui-monospace,monospace}
+#toast{position:fixed;top:calc(14px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:99;background:#1e293b;color:#fff;padding:10px 18px;border-radius:24px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90%}
+#toast.show{opacity:1}
+#toast.ok{background:var(--green)}#toast.err{background:var(--red)}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat .v{font-size:22px;font-weight:800}
+.stat .l{font-size:11px;color:var(--mut)}
+.sel{width:22px;height:22px;flex-shrink:0;margin-top:2px}
+.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:8px 10px;font-size:12px;margin:6px 0}
+.ev{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.ev .t{color:var(--mut);font-size:11px;white-space:nowrap;padding-top:2px}
+.pf{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.pf:last-child{border:none}
+.pf .n{font-weight:600;font-size:14px}
+.pf .d{font-size:11px;color:var(--mut)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot.on{background:var(--green)}.dot.off{background:#cbd5e1}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>🇺🇦 UniBoard</h1><div class="sub">оголошення всюди — з одного місця</div></div>
+  <button class="btn sm sec" onclick="go('edit',null)" style="background:rgba(255,255,255,.18)">＋ Нове</button>
+</header>
+<nav class="top" id="topnav"></nav>
+<main id="view"></main>
+<nav class="bottom" id="botnav"></nav>
+<div id="modalRoot"></div>
+<div id="toast"></div>
+
+<script>
+/* ============ ДАНІ (IndexedDB, локально в телефоні) ============ */
+const STORES=['listings','media','publications','messages','events','kv'];
+let _db=null;
+function idb(){if(_db)return _db;_db=new Promise((res,rej)=>{const r=indexedDB.open('uniboard3',1);
+r.onupgradeneeded=e=>{const d=e.target.result;STORES.forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:s==='kv'?'key':'id',autoIncrement:s!=='kv'})});};
+r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error);});return _db;}
+function rq(r){return new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function os(s,m){const d=await idb();return d.transaction(s,m||'readonly').objectStore(s);}
+const DB={all:s=>rq((os(s)).then?0:0)||0,};
+DB.all=async s=>rq((await os(s)).getAll());
+DB.get=async(s,id)=>rq((await os(s)).get(id));
+DB.put=async(s,v)=>rq((await os(s,'readwrite')).put(v));
+DB.del=async(s,id)=>rq((await os(s,'readwrite')).delete(id));
+DB.clear=async s=>rq((await os(s,'readwrite')).clear());
+async function kvGet(k,def){const r=await DB.get('kv',k);return r?r.value:def;}
+async function kvSet(k,v){await DB.put('kv',{key:k,value:v});}
+
+/* ============ ДОвідники ============ */
+const CATS=['Електроніка','Транспорт','Нерухомість','Одяг та взуття','Дім і сад','Дитячий світ','Тварини','Робота','Послуги','Хобі','Інше'];
+const PLATFORMS=[
+ {code:'telegram',name:'Telegram',auto:true,desc:'Реальна автопублікація через Bot API',url:''},
+ {code:'olx',name:'OLX.ua',auto:false,desc:'Дошка №1 в Україні',url:'https://www.olx.ua/uk/post-new-ad/'},
+ {code:'izi',name:'IZI.ua',auto:false,desc:'Маркетплейс оголошень',url:'https://izi.ua/uk/new/'},
+ {code:'prom',name:'Prom.ua',auto:false,desc:'Маркетплейс товарів',url:'https://my.prom.ua/cabinet/products/create'},
+ {code:'shafa',name:'Shafa.ua',auto:false,desc:'Одяг та взуття',url:'https://shafa.ua/cabinet/products/create'},
+ {code:'facebook',name:'Facebook Marketplace',auto:false,desc:'Соціальна мережа',url:'https://www.facebook.com/marketplace/create/item'},
+ {code:'kidstaff',name:'Kidstaff',auto:false,desc:'Дитячі товари',url:'https://kidstaff.com.ua/sozdaniye-objavlenije.html'},
+ {code:'crafta',name:'Crafta.ua',auto:false,desc:'Ручна робота',url:'https://crafta.ua/cabinet/products/create'},
+ {code:'besplatka',name:'Besplatka.ua',auto:false,desc:'Дошка оголошень',url:'https://besplatka.ua/board/post'},
+ {code:'flagma',name:'Flagma.ua',auto:false,desc:'B2B дошка',url:'https://flagma.ua/add/'},
+];
+const STATUS={draft:['Чернетка',''],published:['Опубліковано','pub'],needs_action:['Потребує дії','act'],error:['Помилка','err'],publishing:['Публікується','pend'],paused:['Призупинено','pau']};
+
+/* ============ СТАН ============ */
+let L=[],MED=[],PUB=[],MSG=[],EV=[],CONN={},PROFILE={name:'',phone:'',email:'',city:'',delivery:''};
+let page='listings',sel=[],viewMode='card',search='',editing=null,editMedia=[],pubIds=[],pubSel=[];
+const urlCache={};
+function murl(m){if(!urlCache[m.id])urlCache[m.id]=URL.createObjectURL(m.blob);return urlCache[m.id];}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function toast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show '+(type||'');clearTimeout(t._h);t._h=setTimeout(()=>t.className='',2600);}
+function fmt(d){return new Date(d).toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit',year:'2-digit'});}
+function fmtd(d){return new Date(d).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+
+async function loadAll(){
+ [L,MED,PUB,MSG,EV]=await Promise.all([DB.all('listings'),DB.all('media'),DB.all('publications'),DB.all('messages'),DB.all('events')]);
+ CONN=await kvGet('conn',{});PROFILE=await kvGet('profile',{name:'',phone:'',email:'',city:'',delivery:''});
+ L.sort((a,b)=>b.createdAt-a.createdAt);
+}
+async function log(type,message){EV.unshift({type,message,at:Date.now()});await DB.put('events',{type,message,at:Date.now()});if(EV.length>200){EV=EV.slice(0,200);}}
+
+/* ============ НАВІГАЦІЯ ============ */
+const NAV=[['listings','📋','Оголошення'],['platforms','🌐','Платформи'],['messages','💬','Чати'],['stats','📊','Статистика'],['profile','👤','Ще']];
+function go(p,id){page=p;if(p==='edit'){editing=id??null;prepEdit();}closeModal();render();window.scrollTo(0,0);}
+function renderNav(){
+ const un=MSG.filter(m=>!m.read).length;
+ document.getElementById('botnav').innerHTML=NAV.map(([id,ic,lb])=>
+  '<button class="'+(page===id||(id==='listings'&&page==='edit')?'on':'')+'" onclick="go(\''+id+'\')"><span class="ic">'+ic+'</span>'+lb+(id==='messages'&&un?'<span class="badge">'+un+'</span>':'')+'</button>').join('');
+ document.getElementById('topnav').innerHTML=NAV.map(([id,ic,lb])=>
+  '<button class="'+(page===id||(id==='listings'&&page==='edit')?'on':'')+'" onclick="go(\''+id+'\')">'+ic+' '+lb+(id==='messages'&&un?' ('+un+')':'')+'</button>').join('');
+}
+function render(){renderNav();const v=document.getElementById('view');
+ if(page==='listings')v.innerHTML=vListings();
+ else if(page==='edit')v.innerHTML=vEdit();
+ else if(page==='platforms')v.innerHTML=vPlatforms();
+ else if(page==='messages')v.innerHTML=vMessages();
+ else if(page==='stats')v.innerHTML=vStats();
+ else if(page==='events')v.innerHTML=vEvents();
+ else if(page==='profile')v.innerHTML=vProfile();
+}
+
+/* ============ СПИСОК ОГОЛОШЕНЬ ============ */
+function pubsOf(id){return PUB.filter(p=>p.listingId===id);}
+function mediaOf(id){return MED.filter(m=>m.listingId===id).sort((a,b)=>a.pos-b.pos);}
+function vListings(){
+ let items=L;
+ if(search)items=items.filter(l=>(l.title+' '+l.description).toLowerCase().includes(search.toLowerCase()));
+ const bulk=sel.length>0;
+ let h='<div class="row" style="margin-bottom:10px"><input class="input" placeholder="🔍 Пошук..." value="'+esc(search)+'" oninput="search=this.value;render()"><select class="input" style="max-width:120px" onchange="viewMode=this.value;render()"><option value="card"'+(viewMode==='card'?' selected':'')+'>Картки</option><option value="list"'+(viewMode==='list'?' selected':'')+'>Список</option></select></div>';
+ if(bulk)h+='<div class="card" style="background:#eff6ff"><div class="row"><button class="btn sm green" onclick="bulkPublish()">▶ Опублікувати ('+sel.length+')</button><button class="btn sm" style="background:#fef9c3;color:#a16207" onclick="bulkPause()">⏸ ('+sel.length+')</button><button class="btn sm danger" onclick="bulkDelete()">🗑 ('+sel.length+')</button><button class="btn sm sec" onclick="sel=[];render()">✕</button></div></div>';
+ if(!items.length)h+='<div class="empty"><div class="big">📋</div><b>Ще немає оголошень</b><br><span class="mut">Створіть перше — і опублікуйте на всіх платформах</span><br><br><button class="btn" onclick="go(\'edit\',null)">＋ Створити оголошення</button></div>';
+ else h+=items.map(l=>{
+  const ms=mediaOf(l.id),main=ms.find(m=>m.isMain)||ms[0],ps=pubsOf(l.id);
+  const chips=ps.map(p=>'<span class="chip '+(STATUS[p.status]?STATUS[p.status][1]:'')+'">'+esc((PLATFORMS.find(x=>x.code===p.platformCode)||{}).name||p.platformCode)+': '+(STATUS[p.status]?STATUS[p.status][0]:p.status)+'</span>').join('');
+  if(l.status==='paused')h+='<span class="chip pau">Призупинено</span>';
+  return '<div class="card"><div class="litem"><input type="checkbox" class="sel" '+(sel.includes(l.id)?'checked':'')+' onchange="togSel('+l.id+')">'+
+   (main?'<img src="'+murl(main)+'">':'<div style="width:64px;height:64px;background:#eef2f7;border-radius:10px;display:flex;align-items:center;justify-content:center">🖼</div>')+
+   '<div style="flex:1;min-width:0"><div class="ltitle">'+esc(l.title)+'</div><div class="lprice">'+l.price+' '+l.currency+' · '+fmt(l.createdAt)+'</div><div style="margin-top:4px">'+chips+'</div>'+
+   '<div class="acts"><button class="btn sm green" onclick="openPublish(['+l.id+'])">▶ Опублікувати</button><button class="btn sm sec" onclick="go(\'edit\','+l.id+')">✏️</button><button class="btn sm sec" onclick="dup('+l.id+')">📋</button><button class="btn sm danger" onclick="delListing('+l.id+')">🗑</button></div></div></div></div>';
+ }).join('');
+ return h;
+}
+function togSel(id){sel=sel.includes(id)?sel.filter(x=>x!==id):[...sel,id];render();}
+async function dup(id){const l=await DB.get('listings',id);const c={...l,title:l.title+' (копія)',createdAt:Date.now(),updatedAt:Date.now()};delete c.id;const nid=await DB.put('listings',c);await log('copy','Дубльовано: '+l.title);toast('Дубльовано','ok');await loadAll();render();}
+async function delListing(id){if(!confirm('Видалити оголошення назавжди?'))return;
+ for(const m of mediaOf(id))await DB.del('media',m.id);
+ for(const p of pubsOf(id))await DB.del('publications',p.id);
+ await DB.del('listings',id);await log('delete','Видалено оголошення #'+id);toast('Видалено','ok');await loadAll();render();}
+async function bulkDelete(){if(!confirm('Видалити '+sel.length+' оголошень?'))return;for(const id of sel)await delListingSilent(id);sel=[];await loadAll();render();toast('Видалено','ok');}
+async function delListingSilent(id){for(const m of mediaOf(id))await DB.del('media',m.id);for(const p of pubsOf(id))await DB.del('publications',p.id);await DB.del('listings',id);}
+async function bulkPause(){for(const id of sel){const l=await DB.get('listings',id);l.status='paused';await DB.put('listings',l);}sel=[];await loadAll();render();toast('Призупинено','ok');}
+function bulkPublish(){openPublish(sel);}
+
+/* ============ РЕДАГУВАННЯ ============ */
+let F={};
+function prepEdit(){
+ if(editing){const l=L.find(x=>x.id===editing);F=JSON.parse(JSON.stringify(l));editMedia=mediaOf(editing).map(m=>({...m}));}
+ else{F={title:'',description:'',price:'',currency:'UAH',category:CATS[0],offerType:'sale',condition:'used',brand:'',model:'',location:PROFILE.city||'',delivery:PROFILE.delivery||''};editMedia=[];}
+}
+function quality(){let s=0,iss=[];if((F.title||'').length>=10)s+=20;else iss.push('Заголовок короткий');if((F.description||'').length>=100)s+=30;else iss.push('Опис короткий (<100 симв.)');if(+F.price>0)s+=15;else iss.push('Вкажіть ціну');if(F.location)s+=10;if(editMedia.length>=3)s+=15;else if(editMedia.length)s+=5;else iss.push('Додайте мінімум 3 фото');return{s,iss};}
+function vEdit(){
+ const q=quality();
+ return '<button class="btn sm sec" onclick="go(\'listings\')">← Назад</button>'+
+ '<div class="card" style="margin-top:10px">'+
+ '<label class="label">Заголовок *</label><div class="row"><input class="input" value="'+esc(F.title)+'" maxlength="200" oninput="F.title=this.value;qRefresh()"><button class="btn sec" onclick="aiTitle()" title="AI-заголовок">✨</button></div>'+
+ '<label class="label">Опис *</label><textarea rows="6" oninput="F.description=this.value;qRefresh()">'+esc(F.description)+'</textarea>'+
+ '<div class="grid2">'+
+ '<div><label class="label">Ціна *</label><input class="input" type="number" value="'+esc(F.price)+'" oninput="F.price=this.value;qRefresh()"></div>'+
+ '<div><label class="label">Валюта</label><select onchange="F.currency=this.value"><option'+(F.currency==='UAH'?' selected':'')+'>UAH</option><option'+(F.currency==='USD'?' selected':'')+'>USD</option><option'+(F.currency==='EUR'?' selected':'')+'>EUR</option></select></div>'+
+ '<div><label class="label">Категорія</label><select onchange="F.category=this.value">'+CATS.map(c=>'<option'+(F.category===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'+
+ '<div><label class="label">Тип</label><select onchange="F.offerType=this.value"><option value="sale"'+(F.offerType==='sale'?' selected':'')+'>Продаж</option><option value="rent"'+(F.offerType==='rent'?' selected':'')+'>Оренда</option><option value="exchange"'+(F.offerType==='exchange'?' selected':'')+'>Обмін</option><option value="free"'+(F.offerType==='free'?' selected':'')+'>Дарма</option></select></div>'+
+ '<div><label class="label">Стан</label><select onchange="F.condition=this.value"><option value="new"'+(F.condition==='new'?' selected':'')+'>Новий</option><option value="used"'+(F.condition==='used'?' selected':'')+'>Вживаний</option><option value="ref"'+(F.condition==='ref'?' selected':'')+'>Відновлений</option></select></div>'+
+ '<div><label class="label">Бренд</label><input class="input" value="'+esc(F.brand)+'" oninput="F.brand=this.value"></div>'+
+ '<div><label class="label">Модель</label><input class="input" value="'+esc(F.model)+'" oninput="F.model=this.value"></div>'+
+ '<div><label class="label">Місто</label><input class="input" value="'+esc(F.location)+'" oninput="F.location=this.value"></div>'+
+ '</div><label class="label">Доставка</label><input class="input" value="'+esc(F.delivery)+'" placeholder="Нова пошта, Укрпошта..." oninput="F.delivery=this.value">'+
+ '<label class="label">Фото</label>'+
+ (editMedia.length?'<div class="mgrid">'+editMedia.map((m,i)=>'<div class="m"><img src="'+(m.blob?murl(m):'')+'">'+(m.isMain?'<span class="star">⭐</span>':'')+'<button class="del" onclick="rmMedia('+i+')">✕</button><button class="main" onclick="mainMedia('+i+')">⭐</button></div>').join('')+'</div>':'')+
+ '<input type="file" id="fin" accept="image/*,video/*" multiple style="display:none" onchange="addFiles(this.files)">'+
+ '<button class="btn sec wide" onclick="document.getElementById(\'fin\').click()">📷 Додати фото/відео</button>'+
+ '<div style="margin-top:14px" class="row"><button class="btn wide" onclick="saveListing()">💾 Зберегти</button>'+(editing?'<button class="btn sec" onclick="openPublish(['+editing+'])">▶ Публікація</button>':'')+'</div>'+
+ '</div>'+
+ '<div class="card"><b style="font-size:13px">✨ Якість оголошення: <span id="qs" style="color:var(--blue)">'+q.s+'/100</span></b><div style="background:#e2e8f0;height:6px;border-radius:3px;margin:8px 0"><div id="qb" style="background:var(--blue);height:6px;border-radius:3px;width:'+q.s+'%"></div></div><div id="qi">'+q.iss.map(i=>'<div class="warn">⚠️ '+i+'</div>').join('')+'</div></div>'+
+ (editing?vPubs(editing):'');
+}
+function qRefresh(){const q=quality();const a=document.getElementById('qs'),b=document.getElementById('qb');if(a){a.textContent=q.s+'/100';b.style.width=q.s+'%';document.getElementById('qi').innerHTML=q.iss.map(i=>'<div class="warn">⚠️ '+i+'</div>').join('');}}
+function aiTitle(){const p=[F.brand,F.model,F.condition==='new'?'новий':null,F.category].filter(Boolean).join(' ');if(p){F.title=p;render();toast('Заголовок запропоновано','ok');}}
+async function addFiles(files){
+ for(const f of files){
+  if(f.type.startsWith('image/')){
+   try{
+    const bmp=await createImageBitmap(f);let w=bmp.width,h=bmp.height;const max=2000;
+    if(w>max||h>max){const r=Math.min(max/w,max/h);w=Math.round(w*r);h=Math.round(h*r);}
+    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(bmp,0,0,w,h);
+    const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.85));
+    editMedia.push({blob,type:'image',name:f.name,w,h,isMain:editMedia.length===0,pos:editMedia.length});
+   }catch(e){toast('Не вдалося обробити '+f.name,'err');}
+  } else if(f.type.startsWith('video/')){
+   if(f.size>50*1024*1024){toast('Відео >50МБ не підтримується','err');continue;}
+   editMedia.push({blob:f,type:'video',name:f.name,isMain:false,pos:editMedia.length});
+  }
+ }
+ render();toast('Додано: '+files.length,'ok');
+}
+function rmMedia(i){editMedia.splice(i,1);editMedia.forEach((m,idx)=>{m.pos=idx;if(idx===0)m.isMain=true;});render();}
+function mainMedia(i){editMedia.forEach((m,idx)=>m.isMain=idx===i);render();}
+async function saveListing(){
+ if(!F.title||F.title.length<3)return toast('Заголовок мінімум 3 символи','err');
+ if(!F.description||F.description.length<10)return toast('Опис мінімум 10 символів','err');
+ if(!(+F.price>0))return toast('Вкажіть ціну','err');
+ const now=Date.now();
+ const rec={...F,price:+F.price,updatedAt:now,status:F.status||'draft'};
+ let id=editing;
+ if(id){rec.id=id;await DB.put('listings',rec);}
+ else{rec.createdAt=now;id=await DB.put('listings',rec);editing=id;}
+ // media: видалити видалені, додати нові
+ const existing=mediaOf(id).map(m=>m.id);
+ const keep=editMedia.filter(m=>m.id).map(m=>m.id);
+ for(const eid of existing)if(!keep.includes(eid)){await DB.del('media',eid);delete urlCache[eid];}
+ for(let i=0;i<editMedia.length;i++){const m=editMedia[i];m.listingId=id;m.pos=i;if(i===0)m.isMain=true;const nid=await DB.put('media',{blob:m.blob,type:m.type,name:m.name,w:m.w,h:m.h,isMain:m.isMain,pos:m.pos,listingId:id});if(!m.id){m.id=nid;delete urlCache[undefined];}}
+ await log('save','Збережено: '+F.title);toast('Збережено','ok');await loadAll();go('edit',id);
+}
+function vPubs(id){
+ const ps=pubsOf(id);if(!ps.length)return '';
+ return '<div class="card"><b style="font-size:13px">Публікації</b>'+ps.map(p=>{
+  const pf=PLATFORMS.find(x=>x.code===p.platformCode)||{name:p.platformCode};
+  return '<div class="pf"><div><span class="dot '+(p.status==='published'?'on':'off')+'"></span><span class="n">'+esc(pf.name)+'</span> <span class="chip '+(STATUS[p.status]?STATUS[p.status][1]:'')+'">'+(STATUS[p.status]?STATUS[p.status][0]:p.status)+'</span><div class="d">'+fmtd(p.createdAt)+(p.error?' · '+esc(p.error):'')+'</div></div><div class="row" style="flex:0">'+(p.externalUrl?'<button class="btn sm sec" onclick="window.open(\''+p.externalUrl+'\')">↗</button>':'')+'<button class="btn sm sec" onclick="retryPub('+p.id+')">🔄</button><button class="btn sm danger" onclick="delPub('+p.id+')">✕</button></div></div>';
+ }).join('')+'</div>';
+}
+async function retryPub(pid){const p=await DB.get('publications',pid);const l=await DB.get('listings',p.listingId);await doPublishOne(l,p.platformCode,p);await loadAll();render();}
+async function delPub(pid){await DB.del('publications',pid);await loadAll();render();toast('Видалено','ok');}
+
+/* ============ АДАПТАЦІЯ ТА ПУБЛІКАЦІЯ ============ */
+function adapt(l,plat){
+ const warn=[];let title=l.title,desc=l.description;
+ const lim={olx:[100,32000],izi:[100,10000],prom:[255,20000],shafa:[100,3000],facebook:[100,1000],kidstaff:[100,10000],crafta:[150,15000],besplatka:[100,10000],flagma:[120,15000]}[plat.code]||[200,10000];
+ if(title.length>lim[0]){warn.push('Заголовок обрізано до '+lim[0]+' симв.');title=title.slice(0,lim[0]);}
+ if(desc.length>lim[1]){warn.push('Опис обрізано до '+lim[1]+' симв.');desc=desc.slice(0,lim[1]);}
+ let text=title+'\n\n💰 '+l.price+' '+l.currency+'\n📦 Стан: '+({new:'новий',used:'вживаний',ref:'відновлений'}[l.condition]||'-')+'\n📍 '+(l.location||'-')+'\n🚚 '+(l.delivery||'-')+'\n📞 '+(PROFILE.phone||'-')+'\n\n'+desc;
+ if(plat.code==='telegram')text='<b>'+esc(title)+'</b>\n\n💰 '+l.price+' '+l.currency+'\n📍 '+esc(l.location||'-')+'\n📞 '+esc(PROFILE.phone||'-')+'\n\n'+esc(desc);
+ return{text,warn};
+}
+function openPublish(ids){pubIds=ids;pubSel=[];
+ const conn=Object.keys(CONN).filter(c=>CONN[c].on);
+ if(!conn.length){toast('Спочатку підключіть платформу','err');go('platforms');return;}
+ showModal('<h3>Куди публікувати?</h3>'+PLATFORMS.filter(p=>CONN[p.code]&&CONN[p.code].on).map(p=>
+  '<label class="pf" style="cursor:pointer"><div><span class="n">'+p.name+'</span><div class="d">'+(p.auto?'✓ автоматично':'⚠️ копіювання + перехід на сайт')+'</div></div><input type="checkbox" style="width:22px;height:22px" value="'+p.code+'" onchange="pubSel=Array.from(document.querySelectorAll(\'#modalRoot input:checked\')).map(i=>i.value)"></label>').join('')+
+  '<div class="row" style="margin-top:14px"><button class="btn sec" onclick="closeModal()">Скасувати</button><button class="btn" onclick="previewPublish()">Далі →</button></div>');
+}
+async function previewPublish(){
+ if(!pubSel.length)return toast('Оберіть платформи','err');
+ let h='<h3>Попередній перегляд</h3>';
+ for(const code of pubSel){
+  const plat=PLATFORMS.find(p=>p.code===code);const l=await DB.get('listings',pubIds[0]);
+  const a=adapt(l,plat);
+  h+='<div class="card"><b>'+plat.name+'</b>'+(a.warn.length?a.warn.map(w=>'<div class="warn">⚠️ '+w+'</div>').join(''):'')+(plat.auto?'':'<div class="warn">📋 Текст буде скопійовано в буфер, відкриється сайт платформи — вставте та опублікуйте вручну</div>')+'<div class="pre">'+esc(a.text)+'</div></div>';
+ }
+ h+='<div class="row"><button class="btn sec" onclick="openPublish(pubIds)">← Назад</button><button class="btn green" onclick="runPublish()">✅ Підтвердити публікацію</button></div>';
+ showModal(h);
+}
+async function runPublish(){
+ closeModal();toast('Публікація...');
+ for(const lid of pubIds){
+  const l=await DB.get('listings',lid);
+  for(const code of pubSel){
+   const existing=PUB.find(p=>p.listingId===lid&&p.platformCode===code);
+   await doPublishOne(l,code,existing);
+  }
+ }
+ sel=[];await loadAll();render();toast('Готово. Перевірте статуси','ok');
+}
+async function doPublishOne(l,code,existing){
+ const plat=PLATFORMS.find(p=>p.code===code);
+ const rec=existing?{...existing}:{listingId:l.id,platformCode:code,createdAt:Date.now()};
+ rec.status='publishing';rec.error=null;const pid=await DB.put('publications',rec);
+ try{
+  const a=adapt(l,plat);
+  const ms=mediaOf(l.id).filter(m=>m.type==='image');
+  if(plat.auto&&code==='telegram'){
+   const c=CONN.telegram;const mid=await tgSend(c,a.text,ms.map(m=>m.blob));
+   rec.status='published';rec.externalId=String(mid);rec.externalUrl='';
+   await log('publish','✅ Telegram: '+l.title);
+  } else {
+   try{await navigator.clipboard.writeText(a.text);}catch(e){}
+   rec.status='needs_action';rec.externalUrl=plat.url;rec.adapted=a.text;
+   await log('publish','📋 '+plat.name+' (потрібна дія): '+l.title);
+   setTimeout(()=>window.open(plat.url,'_blank'),400);
+  }
+ }catch(e){
+  rec.status='error';rec.error=String(e.message||e);
+  await log('error','❌ '+plat.name+': '+rec.error);
+ }
+ rec.updatedAt=Date.now();await DB.put('publications',rec);
+}
+async function tgSend(c,text,blobs){
+ const F=m=>'https://api.telegram.org/bot'+c.token+'/'+m;
+ if(blobs.length===1){const fd=new FormData();fd.append('chat_id',c.chat);fd.append('caption',text);fd.append('parse_mode','HTML');fd.append('photo',blobs[0],'photo.jpg');
+  const r=await fetch(F('sendPhoto'),{method:'POST',body:fd});const d=await r.json();if(!d.ok)throw new Error(d.description);return d.result.message_id;}
+ if(blobs.length>1){const fd=new FormData();fd.append('chat_id',c.chat);const mj=[];blobs.slice(0,10).forEach((b,i)=>{const fn='f'+i;fd.append(fn,b,fn+'.jpg');mj.push(i===0?{type:'photo',media:'attach://'+fn,caption:text,parse_mode:'HTML'}:{type:'photo',media:'attach://'+fn});});fd.append('media',JSON.stringify(mj));
+  const r=await fetch(F('sendMediaGroup'),{method:'POST',body:fd});const d=await r.json();if(!d.ok)throw new Error(d.description);return d.result[0].message_id;}
+ const r=await fetch(F('sendMessage'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:c.chat,text,parse_mode:'HTML'})});
+ const d=await r.json();if(!d.ok)throw new Error(d.description);return d.result.message_id;
+}
+
+/* ============ ПЛАТФОРМИ ============ */
+function vPlatforms(){
+ return '<div class="h2">Платформи</div>'+PLATFORMS.map(p=>{
+  const c=CONN[p.code];
+  return '<div class="card"><div class="pf" style="border:none;padding:0"><div><span class="dot '+(c&&c.on?'on':'off')+'"></span><span class="n">'+p.name+'</span><div class="d">'+p.desc+' · '+(p.auto?'авто':'напівавтоматично')+'</div></div>'+
+  (c&&c.on?'<button class="btn sm danger" onclick="disConn(\''+p.code+'\')">Відключити</button>':'<button class="btn sm" onclick="connForm(\''+p.code+'\')">Підключити</button>')+
+  '</div></div>';
+ }).join('');
+}
+function connForm(code){
+ const p=PLATFORMS.find(x=>x.code===code);
+ let fields='';
+ if(code==='telegram')fields='<label class="label">Bot Token (від @BotFather)</label><input class="input" id="cf_token" placeholder="123456:ABC..."><label class="label">Chat ID (канал/група)</label><input class="input" id="cf_chat" placeholder="@mychannel або -100...">';
+ else fields='<div class="warn">⚠️ Напівавтоматичний режим: додаток підготує та скопіює текст оголошення й відкриє сайт платформи. Публікація завершується вручну (1 хвилина).</div>';
+ showModal('<h3>'+p.name+'</h3>'+fields+'<div class="row" style="margin-top:14px"><button class="btn sec" onclick="closeModal()">Скасувати</button><button class="btn" onclick="doConn(\''+code+'\')">Підключити</button></div>');
+}
+async function doConn(code){
+ if(code==='telegram'){
+  const token=document.getElementById('cf_token').value.trim(),chat=document.getElementById('cf_chat').value.trim();
+  if(!token||!chat)return toast('Заповніть обидва поля','err');
+  toast('Перевірка...');
+  const r=await fetch('https://api.telegram.org/bot'+token+'/getMe');const d=await r.json();
+  if(!d.ok)return toast('Помилка: '+d.description,'err');
+  CONN[code]={on:true,token,chat,name:d.result.first_name};
+ } else CONN[code]={on:true};
+ await kvSet('conn',CONN);await log('connect','Підключено: '+code);closeModal();render();toast('Підключено','ok');
+}
+async function disConn(code){delete CONN[code];await kvSet('conn',CONN);render();toast('Відключено');}
+
+/* ============ ПОВІДОМЛЕННЯ ============ */
+function vMessages(){
+ let h='<div class="h2">Повідомлення</div>';
+ if(CONN.telegram&&CONN.telegram.on)h+='<button class="btn sm sec" onclick="tgPoll()" style="margin-bottom:10px">🔄 Отримати з Telegram</button>';
+ if(!MSG.length)h+='<div class="empty"><div class="big">💬</div>Поки немає повідомлень</div>';
+ else h+=MSG.slice().reverse().map(m=>'<div class="card" style="'+(m.read?'':'background:#eff6ff')+'" onclick="readMsg('+m.id+')"><div class="mut" style="font-size:11px">'+esc(m.platform)+' · '+fmtd(m.at)+'</div><b style="font-size:14px">'+esc(m.sender)+'</b><div style="margin-top:4px">'+esc(m.text)+'</div></div>').join('');
+ return h;
+}
+async function readMsg(id){const m=await DB.get('messages',id);m.read=true;await DB.put('messages',m);await loadAll();render();}
+async function tgPoll(){
+ const c=CONN.telegram;if(!c)return;
+ let off=await kvGet('tg_offset',0);
+ const r=await fetch('https://api.telegram.org/bot'+c.token+'/getUpdates?offset='+off+'&limit=50');
+ const d=await r.json();if(!d.ok)return toast(d.description,'err');
+ for(const u of d.result){
+  off=u.update_id+1;
+  const msg=u.message||u.channel_post;
+  if(msg&&msg.text&&!msg.from.is_bot){
+   await DB.put('messages',{platform:'Telegram',sender:(msg.chat.first_name||msg.chat.title||'')+' '+(msg.chat.last_name||''),text:msg.text,read:false,at:msg.date*1000});
+  }
+ }
+ await kvSet('tg_offset',off);await loadAll();render();toast('Оновлено','ok');
+}
+
+/* ============ СТАТИСТИКА / ПОДІЇ ============ */
+function vStats(){
+ const act=L.filter(l=>l.status!=='paused').length;
+ const byPl={};PUB.forEach(p=>{byPl[p.platformCode]=(byPl[p.platformCode]||0)+1;});
+ return '<div class="h2">Статистика</div><div class="grid2" style="grid-template-columns:repeat(3,1fr)">'+
+ [['L.length','Оголошень'],['act','Активних'],['PUB.length','Публікацій'],['PUB.filter(p=>p.status==="published").length','Авто-опубл.'],['PUB.filter(p=>p.status==="error").length','Помилок'],['MSG.filter(m=>!m.read).length','Нових повід.']]
+ .map(([v,l])=>'<div class="stat"><div class="v">'+eval(v)+'</div><div class="l">'+l+'</div></div>').join('')+'</div>'+
+ '<div class="card" style="margin-top:12px"><b style="font-size:13px">По платформах</b>'+Object.entries(byPl).map(([c,n])=>'<div class="pf"><span class="n">'+esc((PLATFORMS.find(p=>p.code===c)||{}).name||c)+'</span><span class="chip">'+n+' публ.</span></div>').join('')||'<div class="mut">Немає даних</div>'+'</div>';
+}
+function vEvents(){return '<div class="h2">Журнал подій</div>'+(EV.length?EV.map(e=>'<div class="ev"><span class="t">'+fmtd(e.at)+'</span><span>'+esc(e.message)+'</span></div>').join(''):'<div class="empty">Подій немає</div>');}
+
+/* ============ ПРОФІЛЬ ============ */
+function vProfile(){
+ return '<div class="h2">Профіль та налаштування</div>'+
+ '<div class="card"><label class="label">Ім\'я</label><input class="input" value="'+esc(PROFILE.name)+'" oninput="PROFILE.name=this.value">'+
+ '<label class="label">Телефон</label><input class="input" value="'+esc(PROFILE.phone)+'" oninput="PROFILE.phone=this.value">'+
+ '<label class="label">Email</label><input class="input" value="'+esc(PROFILE.email)+'" oninput="PROFILE.email=this.value">'+
+ '<label class="label">Місто</label><input class="input" value="'+esc(PROFILE.city)+'" oninput="PROFILE.city=this.value">'+
+ '<label class="label">Стандартна доставка</label><input class="input" value="'+esc(PROFILE.delivery)+'" oninput="PROFILE.delivery=this.value">'+
+ '<button class="btn wide" style="margin-top:12px" onclick="saveProfile()">💾 Зберегти профіль</button></div>'+
+ '<div class="card"><b style="font-size:13px">📲 Встановити додаток</b><div class="mut" style="margin:6px 0">Android: меню ⋮ → «Додати на головний екран»<br>iOS: Safari → «Поділитися» → «На головний екран»</div>'+
+ (deferredPrompt?'<button class="btn wide" onclick="installApp()">📲 Встановити зараз</button>':'<div class="mut">Вже встановлено або використовуйте меню браузера</div>')+'</div>'+
+ '<div class="card"><b style="font-size:13px">💾 Резервна копія</b><div class="mut" style="margin:6px 0">Дані живуть у цьому пристрої. Робіть копію, щоб перенести на інший телефон.</div><div class="row"><button class="btn sec" onclick="exportBackup()">⬇ Експорт</button><button class="btn sec" onclick="document.getElementById(\'imp\').click()">⬇ Імпорт</button></div><input type="file" id="imp" accept=".json" style="display:none" onchange="importBackup(this.files[0])"></div>'+
+ '<div class="card"><button class="btn sec wide" onclick="go(\'events\')">📜 Журнал подій</button></div>'+
+ '<div class="mut" style="text-align:center">UniBoard v3 · офлайн-режим · без сервера</div>';
+}
+async function saveProfile(){await kvSet('profile',PROFILE);toast('Збережено','ok');}
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
+function installApp(){if(deferredPrompt)deferredPrompt.prompt();}
+async function exportBackup(){
+ const data={listings:L,publications:PUB,messages:MSG,events:EV,profile:PROFILE,conn:CONN,media:[]};
+ for(const m of MED){data.media.push({...m,dataUrl:await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(m.blob);})});}
+ const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='uniboard-backup.json';a.click();
+ toast('Копію завантажено','ok');
+}
+async function importBackup(file){
+ if(!confirm('Імпорт замінить поточні дані. Продовжити?'))return;
+ const data=JSON.parse(await file.text());
+ for(const s of STORES)await DB.clear(s);
+ for(const l of data.listings||[])await DB.put('listings',l);
+ for(const p of data.publications||[])await DB.put('publications',p);
+ for(const m of data.messages||[])await DB.put('messages',m);
+ for(const e of data.events||[])await DB.put('events',e);
+ for(const m of data.media||[]){const blob=await (await fetch(m.dataUrl)).blob();await DB.put('media',{...m,blob});}
+ await kvSet('profile',data.profile||{});await kvSet('conn',data.conn||{});
+ await loadAll();render();toast('Імпортовано','ok');
+}
+
+/* ============ МОДАЛКИ ============ */
+function showModal(html){document.getElementById('modalRoot').innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">'+html+'</div></div>';}
+function closeModal(){document.getElementById('modalRoot').innerHTML='';}
+
+/* ============ СТАРТ ============ */
+(async function(){
+ if(location.protocol.startsWith('http')&&'serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+ try{await loadAll();}catch(e){document.getElementById('view').innerHTML='<div class="empty">❌ Сховище недоступне у цьому режимі. Відкрийте додаток через https:// або встановлений PWA.</div>';return;}
+ render();
+})();
+</script>
+</body>
+</html>
