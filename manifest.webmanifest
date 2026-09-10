@@ -1,15 +1,20 @@
 {
-  "name": "UniBoard — Єдиний центр оголошень",
+  "name": "UniBoard — єдиний центр оголошень",
   "short_name": "UniBoard",
-  "description": "Створи оголошення один раз — опублікуй на всіх українських платформах",
+  "description": "Створіть оголошення один раз — опублікуйте всюди",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f5f7fa",
-  "theme_color": "#0057B7",
+  "background_color": "#F4F5FA",
+  "theme_color": "#4F46E5",
   "lang": "uk",
   "icons": [
-    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
   ]
 }
