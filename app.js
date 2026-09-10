@@ -1479,3 +1479,444 @@ function vPlatforms() {
   }
   return '<div class="h2">Платформи</div>' +
     '<p class="mut" style="margin:-6px 0 10px">' +
+    '⚡ потребують підключення · 📤 та 📋 працюють одразу</p>' +
+    grp('auto', '⚡ Автоматична публікація') +
+    grp('share', '📤 Шеринг одним дотиком') +
+    grp('manual', '📋 Керовані ручні');
+}
+function connForm(code) {
+  var p = plOf(code);
+  var h = '<h3 style="display:flex;align-items:center;gap:8px">';
+  h += plogo(p, 26) + ' ' + p.name + '</h3>';
+  h += '<p class="mut">' + p.desc + '</p>';
+  var fs = p.fields || [];
+  for (var i = 0; i < fs.length; i++) {
+    h += '<label class="label">' + fs[i][1] + '</label>';
+    h += '<input class="input" id="cf_' + fs[i][0] + '">';
+  }
+  h += '<div class="row" style="margin-top:14px">';
+  h += '<button class="btn sec" onclick="closeModal()">Скасувати</button>';
+  h += '<button class="btn" onclick="doConn(\'' + code + '\')">Підключити</button></div>';
+  showModal(h);
+}
+function doConn(code) {
+  var c = { on: true };
+  (plOf(code).fields || []).forEach(function (f) {
+    c[f[0]] = document.getElementById('cf_' + f[0]).value.trim();
+  });
+  toast('Перевірка...');
+  var chain = Promise.resolve();
+  if (code === 'telegram') {
+    chain = fetch('https://api.telegram.org/bot' + c.token +
+      '/getMe').then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) throw new Error(d.description);
+        c.name = d.result.first_name; });
+  }
+  if (code === 'discord') {
+    chain = fetch(c.webhook).then(function (r) {
+      if (!r.ok) throw new Error('Webhook ' + r.status); });
+  }
+  if (code === 'mastodon') {
+    chain = fetch(c.instance.replace(/\/$/, '') +
+      '/api/v1/accounts/verify_credentials',
+      { headers: { 'Authorization': 'Bearer ' + c.token } })
+      .then(function (r) {
+        if (!r.ok) throw new Error('Mastodon ' + r.status); });
+  }
+  chain.then(function () {
+    CONN[code] = c;
+    return kvSet('conn', CONN);
+  }).then(function () {
+    log('connect', 'Підключено: ' + plOf(code).name);
+    closeModal(); render();
+    toast('Підключено', 'ok');
+    if (code === 'telegram') startPoll();
+  }).catch(function (e) {
+    toast('Помилка: ' + e.message, 'err'); });
+}
+function disConn(code) {
+  delete CONN[code];
+  kvSet('conn', CONN).then(function () {
+    render(); toast('Відключено'); });
+}
+/* ===== ПОВІДОМЛЕННЯ ===== */
+var pollTimer = null;
+function startPoll() {
+  if (pollTimer) clearInterval(pollTimer);
+  if (CONN.telegram && CONN.telegram.on && AUTOPOLL) {
+    pollTimer = setInterval(function () { tgPoll(true); }, 60000);
+  }
+}
+function vMessages() {
+  var h = '<div class="h2">Повідомлення</div>';
+  if (CONN.telegram && CONN.telegram.on) {
+    h += '<div class="card"><div class="pf"';
+    h += ' style="border:none;padding:0"><div>';
+    h += '<span class="n">✈️ Автоопитування Telegram</span>';
+    h += '<div class="d">Кожні 60 с, поки додаток відкрито</div>';
+    h += '</div><button class="btn sm ' +
+      (AUTOPOLL ? 'green' : 'sec') + '"';
+    h += ' onclick="togglePoll()">';
+    h += (AUTOPOLL ? 'Увімкнено' : 'Увімкнути');
+    h += '</button></div>';
+    h += '<button class="btn sec wide"';
+    h += ' style="margin-top:8px" onclick="tgPoll(false)">';
+    h += '🔄 Отримати зараз</button></div>';
+  } else {
+    h += '<div class="warn">💬 Вхідні повідомлення підтримує Telegram. Підключіть бота на вкладці «Платформи».</div>';
+  }
+  var keys = [];
+  MSG.forEach(function (m) {
+    var k = m.platform + '|' + m.sender;
+    if (keys.indexOf(k) < 0) keys.push(k);
+  });
+  _TK = keys;
+  if (!MSG.length) {
+    h += '<div class="empty"><div class="big">💬</div>';
+    h += 'Поки немає повідомлень</div>';
+    return h;
+  }
+  for (var i = 0; i < keys.length; i++) {
+    var arr = MSG.filter(function (m) {
+      return (m.platform + '|' + m.sender) === keys[i]; });
+    var last = arr[arr.length - 1];
+    var un = arr.some(function (m) { return !m.read; });
+    var pf = plByName(last.platform);
+    h += '<div class="card" style="' +
+      (un ? 'background:var(--soft)' : '') + '"';
+    h += ' onclick="openThread(' + i + ')">';
+    h += '<div class="pf" style="border:none;padding:0"><div>';
+    h += '<span class="n">' + plogo(pf, 24) + ' ';
+    h += (un ? '🔵 ' : '') + esc(last.sender) + '</span>';
+    h += '<div class="d">' + esc(last.platform) + ' · ';
+    h += fmtd(last.at) + ' · ' + arr.length + ' повід.</div>';
+    h += '<div style="margin-top:4px;font-size:13px">';
+    h += esc(String(last.text).slice(0, 80));
+    h += '</div></div>';
+    h += '<span style="font-size:20px;color:var(--mut)">›</span>';
+    h += '</div></div>';
+  }
+  return h;
+}
+function togglePoll() {
+  AUTOPOLL = !AUTOPOLL;
+  kvSet('tg_autopoll', AUTOPOLL).then(function () {
+    if (AUTOPOLL) startPoll();
+    render();
+    toast(AUTOPOLL ? 'Автоопитування увімкнено' : 'Вимкнено', 'ok');
+  });
+}
+function openThread(i) {
+  var arr = MSG.filter(function (m) {
+    return (m.platform + '|' + m.sender) === _TK[i]; });
+  _TR = arr;
+  Promise.all(arr.filter(function (m) {
+    return !m.read;
+  }).map(function (m) {
+    m.read = true;
+    return DB.put('messages', m);
+  })).then(function () { loadAll().then(renderNav); });
+  var canReply = arr[0].platform === 'Telegram' &&
+    CONN.telegram && CONN.telegram.on && arr[0].chatId;
+  var h = '<h3>' + esc(arr[0].sender) + '</h3>';
+  h += '<div style="max-height:45vh;overflow:auto">';
+  for (var j = 0; j < arr.length; j++) {
+    var m = arr[j];
+    h += '<div class="card" style="margin:6px 0;';
+    h += (m.out ? 'background:var(--soft)' : '') + '">';
+    h += '<div class="mut" style="font-size:10px">';
+    h += (m.out ? 'Ви → ' : '') + fmtd(m.at) + '</div>';
+    h += esc(m.text) + '</div>';
+  }
+  h += '</div>';
+  if (canReply) {
+    h += '<div class="row" style="margin-top:10px">';
+    h += '<input class="input" id="rep"';
+    h += ' placeholder="Ваша відповідь...">';
+    h += '<button class="btn" onclick="sendReplyNow()">➤</button>';
+    h += '</div>';
+  } else {
+    h += '<p class="mut" style="margin-top:8px">';
+    h += 'Відповідь можлива через Telegram-бот або на платформі покупця.</p>';
+  }
+  showModal(h);
+}
+function sendReplyNow() {
+  var el = document.getElementById('rep');
+  var t = el ? el.value.trim() : '';
+  if (!t || !_TR.length) return;
+  tgSend(CONN.telegram, t, []).then(function () {
+    return DB.put('messages', { platform: 'Telegram',
+      sender: _TR[0].sender, text: t, read: true, out: true,
+      chatId: _TR[0].chatId, at: Date.now() });
+  }).then(function () {
+    closeModal();
+    return loadAll();
+  }).then(render)
+    .then(function () { toast('Надіслано', 'ok'); })
+    .catch(function (e) { toast(e.message, 'err'); });
+}
+function tgPoll(silent) {
+  var c = CONN.telegram;
+  if (!c || !c.on) return Promise.resolve();
+  return kvGet('tg_offset', 0).then(function (off) {
+    return fetch('https://api.telegram.org/bot' + c.token +
+      '/getUpdates?offset=' + off + '&limit=50')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) throw new Error(d.description);
+        var n = 0;
+        var p = Promise.resolve();
+        d.result.forEach(function (u) {
+          off = u.update_id + 1;
+          var m = u.message || u.channel_post;
+          if (m && m.text && !m.from.is_bot) {
+            n++;
+            p = p.then(function () {
+              return DB.put('messages', {
+                platform: 'Telegram',
+                sender: ((m.chat.first_name ||
+                  m.chat.title || '') + ' ' +
+                  (m.chat.last_name || '')).trim(),
+                text: m.text, read: false,
+                chatId: m.chat.id, at: m.date * 1000 });
+            });
+          }
+        });
+        return p.then(function () {
+          return kvSet('tg_offset', off);
+        }).then(function () { return loadAll(); })
+          .then(function () {
+            renderNav();
+            if (!silent) {
+              render();
+              toast(n ? 'Нових повідомлень: ' + n
+                : 'Немає нових', 'ok');
+            }
+          });
+      });
+  }).catch(function (e) {
+    if (!silent) toast(e.message, 'err'); });
+}
+/* ===== СТАТИСТИКА / ПОДІЇ / ПРОФІЛЬ ===== */
+function vStats() {
+  var byPl = {};
+  PUB.forEach(function (p) {
+    byPl[p.platformCode] = (byPl[p.platformCode] || 0) + 1;
+  });
+  var vals = [1];
+  Object.keys(byPl).forEach(function (k) {
+    vals.push(byPl[k]); });
+  var mx = Math.max.apply(null, vals);
+  var act = L.filter(function (l) {
+    return l.status !== 'paused'; }).length;
+  var okp = PUB.filter(function (p) {
+    return p.status === 'published'; }).length;
+  var erp = PUB.filter(function (p) {
+    return p.status === 'error'; }).length;
+  var unm = MSG.filter(function (m) {
+    return !m.read; }).length;
+  var cards = [[L.length, 'Оголошень'], [act, 'Активних'],
+    [PUB.length, 'Публікацій'], [okp, 'Успішних'],
+    [erp, 'Помилок'], [unm, 'Нових повід.']];
+  var h = '<div class="h2">Статистика</div>';
+  h += '<div class="grid2"';
+  h += ' style="grid-template-columns:repeat(3,1fr)">';
+  for (var i = 0; i < cards.length; i++) {
+    h += '<div class="stat"><div class="v">';
+    h += cards[i][0] + '</div><div class="l">';
+    h += cards[i][1] + '</div></div>';
+  }
+  h += '</div><div class="card" style="margin-top:12px">';
+  h += '<div class="gtitle">По платформах</div>';
+  var ks = Object.keys(byPl);
+  if (!ks.length) h += '<div class="mut">Немає даних</div>';
+  for (var j = 0; j < ks.length; j++) {
+    var p = plOf(ks[j]);
+    var n = byPl[ks[j]];
+    h += '<div style="margin:8px 0">';
+    h += '<div style="display:flex;';
+    h += 'justify-content:space-between;font-size:12px;';
+    h += 'align-items:center">';
+    h += '<span style="display:flex;align-items:center;gap:6px">';
+    h += plogo(p, 18) + ' ' + esc(p.name) + '</span>';
+    h += '<span>' + n + '</span></div>';
+    h += '<div style="background:#E5E7EB;height:8px;';
+    h += 'border-radius:4px;margin-top:3px">';
+    h += '<div style="background:var(--pri);height:8px;';
+    h += 'border-radius:4px;width:' +
+      Math.round(n / mx * 100) + '%"></div></div></div>';
+  }
+  return h + '</div>';
+}
+function vEvents() {
+  var h = '<div class="h2">Журнал подій</div>';
+  if (!EV.length) {
+    return h + '<div class="empty">Подій немає</div>';
+  }
+  for (var i = 0; i < EV.length; i++) {
+    h += '<div class="ev"><span class="t">';
+    h += fmtd(EV[i].at) + '</span><span>';
+    h += esc(EV[i].message) + '</span></div>';
+  }
+  return h;
+}
+var deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  deferredPrompt = e;
+});
+function installApp() {
+  if (deferredPrompt) deferredPrompt.prompt();
+}
+function vProfile() {
+  var h = '<div class="h2">Профіль</div><div class="card">';
+  h += '<div class="gtitle">Контакти продавця</div>';
+  h += '<label class="label">Ім\'я</label>';
+  h += '<input class="input" value="' + esc(PROFILE.name) + '"';
+  h += ' oninput="PROFILE.name=this.value">';
+  h += '<label class="label">Телефон</label>';
+  h += '<input class="input" value="' + esc(PROFILE.phone) + '"';
+  h += ' oninput="PROFILE.phone=this.value">';
+  h += '<label class="label">Telegram-нік (для посилань)</label>';
+  h += '<input class="input" value="' + esc(PROFILE.tg) + '"';
+  h += ' placeholder="@username"';
+  h += ' oninput="PROFILE.tg=this.value">';
+  h += '<label class="label">Email</label>';
+  h += '<input class="input" value="' + esc(PROFILE.email) + '"';
+  h += ' oninput="PROFILE.email=this.value">';
+  h += '<label class="label">Місто</label>';
+  h += '<input class="input" value="' + esc(PROFILE.city) + '"';
+  h += ' oninput="PROFILE.city=this.value">';
+  h += '<label class="label">Доставка</label>';
+  h += '<input class="input" value="' + esc(PROFILE.delivery) + '"';
+  h += ' oninput="PROFILE.delivery=this.value">';
+  h += '<button class="btn wide" style="margin-top:12px"';
+  h += ' onclick="saveProfile()">💾 Зберегти</button></div>';
+  h += '<div class="card"><div class="gtitle">';
+  h += '📲 Встановити додаток</div>';
+  h += '<div class="mut" style="margin:0 0 8px">';
+  h += 'Android: ⋮ → «Додати на головний екран»<br>';
+  h += 'iOS: Поділитися → «На головний екран»</div>';
+  if (deferredPrompt) {
+    h += '<button class="btn wide" onclick="installApp()">📲 Встановити</button>';
+  } else {
+    h += '<div class="mut">Використовуйте меню браузера</div>';
+  }
+  h += '</div><div class="card">';
+  h += '<div class="gtitle">💾 Резервна копія</div>';
+  h += '<div class="mut" style="margin:0 0 8px">';
+  h += 'Перенесення між пристроями</div><div class="row">';
+  h += '<button class="btn sec" onclick="exportBackup()">⬇ Експорт</button>';
+  h += '<button class="btn sec" onclick="document.getElementById(\'imp\').click()">⬆ Імпорт</button></div>';
+  h += '<input type="file" id="imp" accept=".json"';
+  h += ' style="display:none"';
+  h += ' onchange="importBackup(this.files[0])"></div>';
+  h += '<div class="card"><button class="btn sec wide"';
+  h += ' onclick="go(\'events\')">📜 Журнал подій</button></div>';
+  h += '<div class="mut" style="text-align:center">';
+  h += 'UniBoard v4.4 · 19 платформ · офлайн</div>';
+  return h;
+}
+function saveProfile() {
+  kvSet('profile', PROFILE).then(function () {
+    toast('Збережено', 'ok'); });
+}
+function exportBackup() {
+  var d = { listings: L, publications: PUB, messages: MSG,
+    events: EV, profile: PROFILE, conn: CONN, media: [] };
+  var p = Promise.resolve();
+  MED.forEach(function (m) {
+    p = p.then(function () {
+      return new Promise(function (r) {
+        var f = new FileReader();
+        f.onload = function () {
+          d.media.push(Object.assign({}, m,
+            { dataUrl: f.result }));
+          r();
+        };
+        f.readAsDataURL(m.blob);
+      });
+    });
+  });
+  p.then(function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(
+      [JSON.stringify(d)], { type: 'application/json' }));
+    a.download = 'uniboard-backup.json';
+    a.click();
+    toast('Копію завантажено', 'ok');
+  });
+}
+function importBackup(f) {
+  cAsk('Імпорт замінить поточні дані?').then(function (ok) {
+    if (!ok) return;
+    f.text().then(function (t) {
+      var d = JSON.parse(t);
+      var p = Promise.resolve();
+      STORES.forEach(function (s) {
+        p = p.then(function () { return DB.clear(s); });
+      });
+      (d.listings || []).forEach(function (x) {
+        p = p.then(function () {
+          return DB.put('listings', x); });
+      });
+      (d.publications || []).forEach(function (x) {
+        p = p.then(function () {
+          return DB.put('publications', x); });
+      });
+      (d.messages || []).forEach(function (x) {
+        p = p.then(function () {
+          return DB.put('messages', x); });
+      });
+      (d.events || []).forEach(function (x) {
+        p = p.then(function () {
+          return DB.put('events', x); });
+      });
+      (d.media || []).forEach(function (m) {
+        p = p.then(function () {
+          return fetch(m.dataUrl).then(function (r) {
+            return r.blob();
+          }).then(function (bl) {
+            return DB.put('media',
+              Object.assign({}, m, { blob: bl }));
+          });
+        });
+      });
+      p.then(function () {
+        return kvSet('profile', d.profile || {});
+      }).then(function () {
+        return kvSet('conn', d.conn || {});
+      }).then(function () { return loadAll(); })
+        .then(render)
+        .then(function () { toast('Імпортовано', 'ok'); });
+    });
+  });
+}
+/* ===== СТАРТ ===== */
+(function () {
+  if (location.protocol.indexOf('http') === 0 &&
+    'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .catch(function () {});
+  }
+  var boot;
+  if (location.hash.indexOf('#v=') === 0) {
+    boot = decodeLink(location.hash.slice(3))
+      .then(function (t) { return JSON.parse(t); })
+      .then(function (o) {
+        return loadAll().then(function () {
+          renderPublic(o); });
+      }).catch(function () {
+        location.hash = '';
+        return loadAll().then(render);
+      });
+  } else {
+    boot = loadAll().then(render);
+  }
+  boot.then(function () {
+    maybeOnboard();
+    startPoll();
+  }).catch(function (e) { showErr('start: ' + e.message); });
+})();
