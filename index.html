@@ -140,6 +140,7 @@ textarea{resize:vertical;font-size:15px}
  border-radius:20px; background:#F1F2F6; color:var(--mut);
  margin:2px 2px 2px 0; white-space:nowrap;
 }
+.chip .plogo{vertical-align:-3px;margin-right:3px}
 .chip.pub{background:#DCFCE7;color:#15803D}
 .chip.err{background:#FEE2E2;color:#B91C1C}
 .chip.act{background:#FFEDD5;color:#C2410C}
@@ -154,6 +155,22 @@ textarea{resize:vertical;font-size:15px}
 .chipf.on{
  background:var(--pri); color:#fff; border-color:var(--pri);
 }
+.plogo{
+ position:relative; display:inline-flex; align-items:center;
+ justify-content:center; border-radius:8px; overflow:hidden;
+ flex-shrink:0;
+}
+.plogo img{
+ position:absolute; inset:0; width:100%; height:100%;
+ object-fit:contain; background:#fff;
+}
+.plogo svg{position:absolute;inset:15%;width:70%;height:70%}
+.pl-f{color:#fff;font-weight:800;line-height:1}
+.chk{
+ display:flex; gap:9px; align-items:center;
+ font-size:14px; margin-top:10px; cursor:pointer;
+}
+.chk input{width:20px;height:20px;accent-color:var(--pri)}
 .h2{font-size:19px;font-weight:800;margin:4px 0 12px}
 .mut{color:var(--mut);font-size:13px}
 .empty{text-align:center;padding:50px 20px;color:var(--mut)}
@@ -274,7 +291,10 @@ textarea{resize:vertical;font-size:15px}
  border-bottom:1px solid var(--line);
 }
 .pf:last-child{border:none}
-.pf .n{font-weight:600;font-size:14px}
+.pf .n{
+ font-weight:600; font-size:14px;
+ display:flex; align-items:center; gap:8px;
+}
 .pf .d{font-size:11px;color:var(--mut)}
 .dot{
  width:9px; height:9px; border-radius:50%;
