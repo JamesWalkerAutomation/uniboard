@@ -64,17 +64,18 @@ textarea{resize:vertical}.label{display:block;font-size:12px;font-weight:600;col
 .sel{width:22px;height:22px;flex-shrink:0;margin-top:2px}
 .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:8px 10px;font-size:12px;margin:6px 0}
 .okbox{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:8px 10px;font-size:12px;margin:6px 0}
+.errbox{background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:10px;padding:10px;font-size:13px;margin:10px 0;white-space:pre-wrap}
 .ev{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
 .ev .t{color:var(--mut);font-size:11px;white-space:nowrap;padding-top:2px}
 .pf{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .pf:last-child{border:none}.pf .n{font-weight:600;font-size:14px}.pf .d{font-size:11px;color:var(--mut)}
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.on{background:var(--green)}.dot.off{background:#cbd5e1}
 .grp{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 4px}
-.step{display:flex;gap:10px;align-items:center;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;margin:6px 0}
+.step{display:flex;gap:10px;align-items:center;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;margin:6px 0;flex-wrap:wrap}
 .step .num{width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
 .pubhero{background:linear-gradient(135deg,var(--blue),#0077cc);color:#fff;border-radius:16px;padding:18px;margin-bottom:12px}
 .pubhero .p{font-size:26px;font-weight:800}
-body.pubmode header,body.pubmode nav{display:none}
+body.pubmode header,body.pubmode nav,body.pubmode .fab{display:none}
 body.pubmode main{padding-bottom:30px}
 </style>
 </head>
@@ -87,22 +88,29 @@ body.pubmode main{padding-bottom:30px}
 <div id="modalRoot"></div>
 <div id="toast"></div>
 <script>
+"use strict";
+/* АВАРІЙНИЙ ЕКРАН: будь-яка помилка стане видимою */
+window.addEventListener('error',function(e){showErr('Помилка: '+(e.message||'невідома')+' (рядок '+(e.lineno||'?')+')');});
+function showErr(msg){var v=document.getElementById('view');if(v)v.innerHTML='<div class="errbox">❌ '+msg+'\n\nСфотографуйте цей текст і надішліть розробнику.</div>';}
 /* ===== СХОВИЩЕ ===== */
-const STORES=['listings','media','publications','messages','events','kv'];
-let _db=null;
-function idb(){if(_db)return _db;_db=new Promise((res,rej)=>{const r=indexedDB.open('uniboard4',1);
-r.onupgradeneeded=e=>{const d=e.target.result;STORES.forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:s==='kv'?'key':'id',autoIncrement:s!=='kv'})});};
-r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e.target.error);});return _db;}
-function rq(r){return new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
-async function os(s,m){const d=await idb();return d.transaction(s,m||'readonly').objectStore(s);}
-const DB={};
-DB.all=async s=>rq((await os(s)).getAll());DB.get=async(s,id)=>rq((await os(s)).get(id));
-DB.put=async(s,v)=>rq((await os(s,'readwrite')).put(v));DB.del=async(s,id)=>rq((await os(s,'readwrite')).delete(id));DB.clear=async s=>rq((await os(s,'readwrite')).clear());
-async function kvGet(k,d){const r=await DB.get('kv',k);return r?r.value:d;}
-async function kvSet(k,v){await DB.put('kv',{key:k,value:v});}
+var STORES=['listings','media','publications','messages','events','kv'];
+var _db=null;
+function idb(){if(_db)return _db;_db=new Promise(function(res,rej){var r=indexedDB.open('uniboard4',1);
+r.onupgradeneeded=function(e){var d=e.target.result;STORES.forEach(function(s){if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:s==='kv'?'key':'id',autoIncrement:s!=='kv'});});};
+r.onsuccess=function(e){res(e.target.result);};r.onerror=function(e){rej(e.target.error);};});return _db;}
+function rq(r){return new Promise(function(res,rej){r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
+function os(s,m){return idb().then(function(d){return d.transaction(s,m||'readonly').objectStore(s);});}
+var DB={};
+DB.all=function(s){return os(s).then(function(o){return rq(o.getAll());});};
+DB.get=function(s,id){return os(s).then(function(o){return rq(o.get(id));});};
+DB.put=function(s,v){return os(s,'readwrite').then(function(o){return rq(o.put(v));});};
+DB.del=function(s,id){return os(s,'readwrite').then(function(o){return rq(o.delete(id));});};
+DB.clear=function(s){return os(s,'readwrite').then(function(o){return rq(o.clear());});};
+function kvGet(k,d){return DB.get('kv',k).then(function(r){return r?r.value:d;});}
+function kvSet(k,v){return DB.put('kv',{key:k,value:v});}
 /* ===== ДОВІДНИКИ ===== */
-const CATS=['Електроніка','Транспорт','Нерухомість','Одяг та взуття','Дім і сад','Дитячий світ','Тварини','Робота','Послуги','Хобі','Інше'];
-const PL=[
+var CATS=['Електроніка','Транспорт','Нерухомість','Одяг та взуття','Дім і сад','Дитячий світ','Тварини','Робота','Послуги','Хобі','Інше'];
+var PL=[
 {code:'telegram',name:'Telegram',grp:'auto',icon:'✈️',desc:'Bot API: автопублікація з фото + вхідні повідомлення та відповіді',fields:[['token','Bot Token (від @BotFather)'],['chat','Chat ID каналу/групи']]},
 {code:'discord',name:'Discord',grp:'auto',icon:'🎮',desc:'Webhook: автопублікація з фото у канал спільноти',fields:[['webhook','URL Webhook (Settings → Integrations)']]},
 {code:'mastodon',name:'Mastodon',grp:'auto',icon:'🐘',desc:'API: автопублікація посту (текст)',fields:[['instance','Інстанція, напр. https://mastodon.social'],['token','Access Token']]},
@@ -122,230 +130,244 @@ const PL=[
 {code:'crafta',name:'Crafta.ua',grp:'manual',icon:'🎨',desc:'Ручна робота',url:'https://crafta.ua/cabinet/products/create'},
 {code:'besplatka',name:'Besplatka.ua',grp:'manual',icon:'📰',desc:'Дошка оголошень',url:'https://besplatka.ua/board/post'},
 {code:'flagma',name:'Flagma.ua',grp:'manual',icon:'🏭',desc:'B2B дошка',url:'https://flagma.ua/add/'}];
-const STATUS={draft:['Чернетка',''],published:['Опубліковано','pub'],needs_action:['Потребує дії','act'],error:['Помилка','err'],publishing:['Публікується','pend'],paused:['Призупинено','pau']};
+var STATUS={draft:['Чернетка',''],published:['Опубліковано','pub'],needs_action:['Потребує дії','act'],error:['Помилка','err'],publishing:['Публікується','pend'],paused:['Призупинено','pau']};
 /* ===== СТАН ===== */
-let L=[],MED=[],PUB=[],MSG=[],EV=[],CONN={},PROFILE={name:'',phone:'',email:'',city:'',delivery:'',tg:''};
-let page='listings',sel=[],viewMode='card',search='',fSt='all',sortB='new',editing=null,editMedia=[],pubIds=[],pubSel=[];
-const urlCache={};
+var L=[],MED=[],PUB=[],MSG=[],EV=[],CONN={},AUTOPOLL=false;
+var PROFILE={name:'',phone:'',email:'',city:'',delivery:'',tg:''};
+var page='listings',sel=[],viewMode='card',search='',fSt='all',sortB='new',editing=null,editMedia=[],pubIds=[],pubSel=[];
+var _TK=[],_TR=[];
+var urlCache={};
 function murl(m){if(!urlCache[m.id])urlCache[m.id]=URL.createObjectURL(m.blob);return urlCache[m.id];}
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function toast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='show '+(t||'');clearTimeout(e._h);e._h=setTimeout(()=>e.className='',2600);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.className='show '+(t||'');clearTimeout(e._h);e._h=setTimeout(function(){e.className='';},2600);}
 function fmtd(d){return new Date(d).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
-async function loadAll(){[L,MED,PUB,MSG,EV]=await Promise.all([DB.all('listings'),DB.all('media'),DB.all('publications'),DB.all('messages'),DB.all('events')]);CONN=await kvGet('conn',{});PROFILE=await kvGet('profile',PROFILE);sortListings();}
-function sortListings(){L.sort((a,b)=>sortB==='price'?a.price-b.price:b.createdAt-a.createdAt);}
-async function log(t,m){const r={type:t,message:m,at:Date.now()};EV.unshift(r);await DB.put('events',r);if(EV.length>200)EV=EV.slice(0,200);}
-function mediaOf(id){return MED.filter(m=>m.listingId===id).sort((a,b)=>a.pos-b.pos);}
-function pubsOf(id){return PUB.filter(p=>p.listingId===id);}
-function plOf(c){return PL.find(p=>p.code===c)||{name:c,icon:'❓'};}
-/* ===== МОДАЛКИ / ПІДТВЕРДЖЕННЯ ===== */
+function loadAll(){return Promise.all([DB.all('listings'),DB.all('media'),DB.all('publications'),DB.all('messages'),DB.all('events')]).then(function(r){L=r[0];MED=r[1];PUB=r[2];MSG=r[3];EV=r[4];return Promise.all([kvGet('conn',{}),kvGet('profile',null),kvGet('tg_autopoll',false)]);}).then(function(r){CONN=r[0]||{};if(r[1])PROFILE=r[1];AUTOPOLL=!!r[2];sortListings();});}
+function sortListings(){L.sort(function(a,b){return sortB==='price'?a.price-b.price:b.createdAt-a.createdAt;});}
+function log(t,m){var r={type:t,message:m,at:Date.now()};EV.unshift(r);DB.put('events',r);if(EV.length>200)EV=EV.slice(0,200);}
+function mediaOf(id){return MED.filter(function(m){return m.listingId===id;}).sort(function(a,b){return a.pos-b.pos;});}
+function pubsOf(id){return PUB.filter(function(p){return p.listingId===id;});}
+function plOf(c){return PL.find(function(p){return p.code===c;})||{name:c,icon:'❓'};}
+/* ===== МОДАЛКИ ===== */
 function showModal(h){document.getElementById('modalRoot').innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">'+h+'</div></div>';}
 function closeModal(){document.getElementById('modalRoot').innerHTML='';}
-let _cRes=null;
-function cAsk(m){return new Promise(r=>{_cRes=r;showModal('<h3>Підтвердження</h3><p style="margin:8px 0 16px">'+esc(m)+'</p><div class="row"><button class="btn sec" onclick="cDone(false)">Скасувати</button><button class="btn danger" onclick="cDone(true)">Так</button></div>');});}
+var _cRes=null;
+function cAsk(m){return new Promise(function(r){_cRes=r;showModal('<h3>Підтвердження</h3><p style="margin:8px 0 16px">'+esc(m)+'</p><div class="row"><button class="btn sec" onclick="cDone(false)">Скасувати</button><button class="btn danger" onclick="cDone(true)">Так</button></div>');});}
 function cDone(v){closeModal();if(_cRes)_cRes(v);_cRes=null;}
 /* ===== НАВІГАЦІЯ ===== */
-const NAV=[['listings','📋','Оголошення'],['platforms','🌐','Платформи'],['messages','💬','Чати'],['stats','📊','Статистика'],['profile','👤','Ще']];
-function go(p,id){page=p;if(p==='edit'){editing=id??null;prepEdit();}closeModal();render();window.scrollTo(0,0);}
-function renderNav(){const un=MSG.filter(m=>!m.read).length;
-document.getElementById('botnav').innerHTML=NAV.map(([id,ic,lb])=>'<button class="'+(page===id||(id==='listings'&&page==='edit')?'on':'')+'" onclick="go(\''+id+'\')"><span class="ic">'+ic+'</span>'+lb+(id==='messages'&&un?'<span class="badge">'+un+'</span>':'')+'</button>').join('');
-document.getElementById('topnav').innerHTML=NAV.map(([id,ic,lb])=>'<button class="'+(page===id||(id==='listings'&&page==='edit')?'on':'')+'" onclick="go(\''+id+'\')">'+ic+' '+lb+(id==='messages'&&un?' ('+un+')':'')+'</button>').join('');}
-function render(){renderNav();const v=document.getElementById('view');
-v.innerHTML=page==='listings'?vListings():page==='edit'?vEdit():page==='platforms'?vPlatforms():page==='messages'?vMessages():page==='stats'?vStats():page==='events'?vEvents():vProfile();}
-/* ===== ОНБОРДИНГ ===== */
-async function maybeOnboard(){if(await kvGet('onboard',false))return;
-showModal('<div style="text-align:center;padding:10px 0"><div style="font-size:52px">🇺🇦</div><h3 style="margin:8px 0">Вітаємо в UniBoard!</h3><p class="mut">1️⃣ Створіть оголошення з фото<br>2️⃣ Оберіть платформи (19 доступних)<br>3️⃣ Додаток адаптує текст і опублікує<br><br>📤 Telegram, Discord, Mastodon — автоматично<br>📱 Facebook, WhatsApp, Viber... — один дотик<br>📋 OLX, IZI, Prom... — крок за кроком</p><button class="btn wide" style="margin-top:10px" onclick="kvSet(\'onboard\',true);closeModal()">Почнемо 🚀</button></div>');}
+var NAV=[['listings','📋','Оголошення'],['platforms','🌐','Платформи'],['messages','💬','Чати'],['stats','📊','Статистика'],['profile','👤','Ще']];
+function go(p,id){page=p;if(p==='edit'){editing=(id==null?null:id);prepEdit();}closeModal();render();window.scrollTo(0,0);}
+function renderNav(){var un=MSG.filter(function(m){return !m.read;}).length;
+document.getElementById('botnav').innerHTML=NAV.map(function(n){var id=n[0];return '<button class="'+((page===id||(id==='listings'&&page==='edit'))?'on':'')+'" onclick="go(\''+id+'\')"><span class="ic">'+n[1]+'</span>'+n[2]+(id==='messages'&&un?'<span class="badge">'+un+'</span>':'')+'</button>';}).join('');
+document.getElementById('topnav').innerHTML=NAV.map(function(n){var id=n[0];return '<button class="'+((page===id||(id==='listings'&&page==='edit'))?'on':'')+'" onclick="go(\''+id+'\')">'+n[1]+' '+n[2]+(id==='messages'&&un?' ('+un+')':'')+'</button>';}).join('');}
+function render(){try{renderNav();var v=document.getElementById('view');
+if(page==='listings')v.innerHTML=vListings();
+else if(page==='edit')v.innerHTML=vEdit();
+else if(page==='platforms')v.innerHTML=vPlatforms();
+else if(page==='messages')v.innerHTML=vMessages();
+else if(page==='stats')v.innerHTML=vStats();
+else if(page==='events')v.innerHTML=vEvents();
+else v.innerHTML=vProfile();}catch(e){showErr('render: '+e.message);}}
+function maybeOnboard(){kvGet('onboard',false).then(function(done){if(done)return;
+showModal('<div style="text-align:center;padding:10px 0"><div style="font-size:52px">🇺🇦</div><h3 style="margin:8px 0">Вітаємо в UniBoard!</h3><p class="mut">1️⃣ Створіть оголошення з фото<br>2️⃣ Оберіть платформи (19 доступних)<br>3️⃣ Додаток адаптує текст і опублікує<br><br>⚡ Telegram, Discord, Mastodon — автоматично<br>📤 Facebook, WhatsApp, Viber... — один дотик<br>📋 OLX, IZI, Prom... — крок за кроком</p><button class="btn wide" style="margin-top:10px" onclick="kvSet(\'onboard\',true);closeModal()">Почнемо 🚀</button></div>');});}
 /* ===== СПИСОК ===== */
 function vListings(){
-let items=L;
-if(search)items=items.filter(l=>(l.title+' '+l.description).toLowerCase().includes(search.toLowerCase()));
-if(fSt==='draft')items=items.filter(l=>!pubsOf(l.id).length);
-else if(fSt!=='all')items=items.filter(l=>pubsOf(l.id).some(p=>p.status===fSt)||(fSt==='paused'&&l.status==='paused'));
-const chips=[['all','Всі '+L.length],['draft','Чернетки'],['published','Опубліковані'],['needs_action','Потребує дії'],['error','Помилки'],['paused','Призупинені']];
-let h='<div class="row" style="margin-bottom:8px"><input class="input" placeholder="🔍 Пошук..." value="'+esc(search)+'" oninput="search=this.value;render()"><select class="input" style="max-width:130px" onchange="sortB=this.value;sortListings();render()"><option value="new"'+(sortB==='new'?' selected':'')+'>Нові</option><option value="price"'+(sortB==='price'?' selected':'')+'>За ціною</option></select></div>';
-h+='<div>'+chips.map(([k,lb])=>'<span class="chipf'+(fSt===k?' on':'')+'" onclick="fSt=\''+k+'\';render()">'+lb+'</span>').join('')+'</div>';
+var items=L;
+if(search)items=items.filter(function(l){return (l.title+' '+l.description).toLowerCase().indexOf(search.toLowerCase())>=0;});
+if(fSt==='draft')items=items.filter(function(l){return !pubsOf(l.id).length;});
+else if(fSt!=='all')items=items.filter(function(l){return pubsOf(l.id).some(function(p){return p.status===fSt;})||(fSt==='paused'&&l.status==='paused');});
+var chips=[['all','Всі '+L.length],['draft','Чернетки'],['published','Опубліковані'],['needs_action','Потребує дії'],['error','Помилки'],['paused','Призупинені']];
+var h='<div class="row" style="margin-bottom:8px"><input class="input" placeholder="🔍 Пошук..." value="'+esc(search)+'" oninput="search=this.value;render()"><select class="input" style="max-width:130px" onchange="sortB=this.value;sortListings();render()"><option value="new"'+(sortB==='new'?' selected':'')+'>Нові</option><option value="price"'+(sortB==='price'?' selected':'')+'>За ціною</option></select></div>';
+h+='<div>'+chips.map(function(c){return '<span class="chipf'+(fSt===c[0]?' on':'')+'" onclick="fSt=\''+c[0]+'\';render()">'+c[1]+'</span>';}).join('')+'</div>';
 if(sel.length)h+='<div class="card" style="background:#eff6ff"><div class="row"><button class="btn sm green" onclick="openPublish(sel)">▶ ('+sel.length+')</button><button class="btn sm" style="background:#fef9c3;color:#a16207" onclick="bulkPause()">⏸</button><button class="btn sm danger" onclick="bulkDelete()">🗑</button><button class="btn sm sec" onclick="sel=[];render()">✕</button></div></div>';
 if(!items.length)h+='<div class="empty"><div class="big">📋</div><b>Немає оголошень</b><br><span class="mut">Створіть перше — і опублікуйте всюди</span><br><br><button class="btn" onclick="go(\'edit\',null)">＋ Створити</button></div>';
-else h+=items.map(l=>{const ms=mediaOf(l.id),mn=ms.find(m=>m.isMain)||ms[0],ps=pubsOf(l.id);
-const chips2=ps.map(p=>'<span class="chip '+(STATUS[p.status]?STATUS[p.status][1]:'')+'">'+plOf(p.platformCode).icon+' '+(STATUS[p.status]?STATUS[p.status][0]:p.status)+'</span>').join('')+(l.status==='paused'?'<span class="chip pau">⏸ Призупинено</span>':'');
-return '<div class="card"><div class="litem"><input type="checkbox" class="sel" '+(sel.includes(l.id)?'checked':'')+' onchange="togSel('+l.id+')">'+(mn?'<img src="'+murl(mn)+'">':'<div style="width:64px;height:64px;background:#eef2f7;border-radius:10px;display:flex;align-items:center;justify-content:center">🖼</div>')+'<div style="flex:1;min-width:0"><div class="ltitle">'+esc(l.title)+'</div><div class="lprice">'+l.price+' '+l.currency+' · '+new Date(l.createdAt).toLocaleDateString('uk-UA')+'</div><div style="margin-top:4px">'+chips2+'</div><div class="acts"><button class="btn sm green" onclick="openPublish(['+l.id+'])">▶</button><button class="btn sm sec" onclick="go(\'edit\','+l.id+')">✏️</button><button class="btn sm sec" onclick="shareNative('+l.id+')" title="Поділитися">📤</button><button class="btn sm sec" onclick="dup('+l.id+')">📋</button><button class="btn sm danger" onclick="delListing('+l.id+')">🗑</button></div></div></div></div>';}).join('');
+else h+=items.map(function(l){var ms=mediaOf(l.id),mn=ms.find(function(m){return m.isMain;})||ms[0],ps=pubsOf(l.id);
+var chips2=ps.map(function(p){return '<span class="chip '+((STATUS[p.status]||['',''])[1])+'">'+plOf(p.platformCode).icon+' '+((STATUS[p.status]||[p.status])[0])+'</span>';}).join('')+(l.status==='paused'?'<span class="chip pau">⏸ Призупинено</span>':'');
+return '<div class="card"><div class="litem"><input type="checkbox" class="sel" '+(sel.indexOf(l.id)>=0?'checked':'')+' onchange="togSel('+l.id+')">'+(mn?'<img src="'+murl(mn)+'">':'<div style="width:64px;height:64px;background:#eef2f7;border-radius:10px;display:flex;align-items:center;justify-content:center">🖼</div>')+'<div style="flex:1;min-width:0"><div class="ltitle">'+esc(l.title)+'</div><div class="lprice">'+l.price+' '+l.currency+' · '+new Date(l.createdAt).toLocaleDateString('uk-UA')+'</div><div style="margin-top:4px">'+chips2+'</div><div class="acts"><button class="btn sm green" onclick="openPublish(['+l.id+'])">▶</button><button class="btn sm sec" onclick="go(\'edit\','+l.id+')">✏️</button><button class="btn sm sec" onclick="shareNative('+l.id+')">📤</button><button class="btn sm sec" onclick="dup('+l.id+')">📋</button><button class="btn sm danger" onclick="delListing('+l.id+')">🗑</button></div></div></div></div>';}).join('');
 return h;}
-function togSel(id){sel=sel.includes(id)?sel.filter(x=>x!==id):[...sel,id];render();}
-async function dup(id){const l=await DB.get('listings',id);const c={...l,title:l.title+' (копія)',createdAt:Date.now(),updatedAt:Date.now()};delete c.id;await DB.put('listings',c);await log('copy','Дубль: '+l.title);toast('Дубльовано','ok');await loadAll();render();}
-async function delListing(id){if(!await cAsk('Видалити оголошення назавжди?'))return;for(const m of mediaOf(id))await DB.del('media',m.id);for(const p of pubsOf(id))await DB.del('publications',p.id);await DB.del('listings',id);await log('delete','Видалено #'+id);toast('Видалено','ok');await loadAll();render();}
-async function bulkDelete(){if(!await cAsk('Видалити '+sel.length+' оголошень?'))return;for(const id of sel){for(const m of mediaOf(id))await DB.del('media',m.id);for(const p of pubsOf(id))await DB.del('publications',p.id);await DB.del('listings',id);}sel=[];await loadAll();render();toast('Видалено','ok');}
-async function bulkPause(){for(const id of sel){const l=await DB.get('listings',id);l.status='paused';await DB.put('listings',l);}sel=[];await loadAll();render();toast('Призупинено','ok');}
-async function shareNative(id){const l=await DB.get('listings',id);const u=await pubLink(l);const t=l.title+' — '+l.price+' '+l.currency;
-if(navigator.share){try{await navigator.share({title:t,text:t,url:u});return;}catch(e){}}
-window.open('https://t.me/share/url?url='+encodeURIComponent(u)+'&text='+encodeURIComponent(t),'_blank');}
+function togSel(id){sel=sel.indexOf(id)>=0?sel.filter(function(x){return x!==id;}):sel.concat([id]);render();}
+function dup(id){DB.get('listings',id).then(function(l){var c=Object.assign({},l,{title:l.title+' (копія)',createdAt:Date.now(),updatedAt:Date.now()});delete c.id;return DB.put('listings',c);}).then(function(){log('copy','Дубль');toast('Дубльовано','ok');return loadAll();}).then(render);}
+function delListing(id){cAsk('Видалити оголошення назавжди?').then(function(ok){if(!ok)return;
+var p=Promise.resolve();mediaOf(id).forEach(function(m){p=p.then(function(){return DB.del('media',m.id);});});pubsOf(id).forEach(function(x){p=p.then(function(){return DB.del('publications',x.id);});});
+return p.then(function(){return DB.del('listings',id);}).then(function(){log('delete','Видалено #'+id);toast('Видалено','ok');return loadAll();}).then(render);});}
+function bulkDelete(){cAsk('Видалити '+sel.length+' оголошень?').then(function(ok){if(!ok)return;
+var p=Promise.resolve();sel.forEach(function(id){mediaOf(id).forEach(function(m){p=p.then(function(){return DB.del('media',m.id);});});pubsOf(id).forEach(function(x){p=p.then(function(){return DB.del('publications',x.id);});});p=p.then(function(){return DB.del('listings',id);});});
+p.then(function(){sel=[];return loadAll();}).then(render).then(function(){toast('Видалено','ok');});});}
+function bulkPause(){Promise.all(sel.map(function(id){return DB.get('listings',id).then(function(l){l.status='paused';return DB.put('listings',l);});})).then(function(){sel=[];return loadAll();}).then(render).then(function(){toast('Призупинено','ok');});}
+function shareNative(id){DB.get('listings',id).then(function(l){return pubLink(l).then(function(u){var t=l.title+' — '+l.price+' '+l.currency;
+if(navigator.share){navigator.share({title:t,text:t,url:u}).catch(function(){});return;}
+window.open('https://t.me/share/url?url='+encodeURIComponent(u)+'&text='+encodeURIComponent(t),'_blank');});});}
 /* ===== РЕДАГУВАННЯ ===== */
-let F={};
-function prepEdit(){if(editing){const l=L.find(x=>x.id===editing);F=JSON.parse(JSON.stringify(l));editMedia=mediaOf(editing).map(m=>({...m}));}
+var F={};
+function prepEdit(){if(editing){var l=L.find(function(x){return x.id===editing;});F=JSON.parse(JSON.stringify(l));editMedia=mediaOf(editing).map(function(m){return Object.assign({},m);});}
 else{F={title:'',description:'',price:'',currency:'UAH',category:CATS[0],offerType:'sale',condition:'used',brand:'',model:'',location:PROFILE.city||'',delivery:PROFILE.delivery||''};editMedia=[];}}
-function quality(){let s=0,iss=[];if((F.title||'').length>=10)s+=20;else iss.push('Заголовок короткий');if((F.description||'').length>=100)s+=30;else iss.push('Опис короткий');if(+F.price>0)s+=15;else iss.push('Вкажіть ціну');if(F.location)s+=10;if(editMedia.length>=3)s+=15;else if(editMedia.length)s+=5;else iss.push('Мінімум 3 фото');return{s,iss};}
-function vEdit(){const q=quality();
+function quality(){var s=0,iss=[];if((F.title||'').length>=10)s+=20;else iss.push('Заголовок короткий');if((F.description||'').length>=100)s+=30;else iss.push('Опис короткий');if(+F.price>0)s+=15;else iss.push('Вкажіть ціну');if(F.location)s+=10;if(editMedia.length>=3)s+=15;else if(editMedia.length)s+=5;else iss.push('Мінімум 3 фото');return{s:s,iss:iss};}
+function vEdit(){var q=quality();
 return '<button class="btn sm sec" onclick="go(\'listings\')">← Назад</button><div class="card" style="margin-top:10px">'+
 '<label class="label">Заголовок *</label><div class="row"><input class="input" value="'+esc(F.title)+'" maxlength="200" oninput="F.title=this.value;qRefresh()"><button class="btn sec" onclick="aiTitle()">✨</button></div>'+
 '<label class="label">Опис *</label><textarea rows="6" oninput="F.description=this.value;qRefresh()">'+esc(F.description)+'</textarea>'+
 '<div class="grid2">'+
 '<div><label class="label">Ціна *</label><input class="input" type="number" value="'+esc(F.price)+'" oninput="F.price=this.value;qRefresh()"></div>'+
 '<div><label class="label">Валюта</label><select onchange="F.currency=this.value"><option'+(F.currency==='UAH'?' selected':'')+'>UAH</option><option'+(F.currency==='USD'?' selected':'')+'>USD</option><option'+(F.currency==='EUR'?' selected':'')+'>EUR</option></select></div>'+
-'<div><label class="label">Категорія</label><select onchange="F.category=this.value">'+CATS.map(c=>'<option'+(F.category===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'+
+'<div><label class="label">Категорія</label><select onchange="F.category=this.value">'+CATS.map(function(c){return '<option'+(F.category===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div>'+
 '<div><label class="label">Тип</label><select onchange="F.offerType=this.value"><option value="sale"'+(F.offerType==='sale'?' selected':'')+'>Продаж</option><option value="rent"'+(F.offerType==='rent'?' selected':'')+'>Оренда</option><option value="exchange"'+(F.offerType==='exchange'?' selected':'')+'>Обмін</option><option value="free"'+(F.offerType==='free'?' selected':'')+'>Дарма</option></select></div>'+
 '<div><label class="label">Стан</label><select onchange="F.condition=this.value"><option value="new"'+(F.condition==='new'?' selected':'')+'>Новий</option><option value="used"'+(F.condition==='used'?' selected':'')+'>Вживаний</option><option value="ref"'+(F.condition==='ref'?' selected':'')+'>Відновлений</option></select></div>'+
 '<div><label class="label">Бренд</label><input class="input" value="'+esc(F.brand)+'" oninput="F.brand=this.value"></div>'+
 '<div><label class="label">Модель</label><input class="input" value="'+esc(F.model)+'" oninput="F.model=this.value"></div>'+
 '<div><label class="label">Місто</label><input class="input" value="'+esc(F.location)+'" oninput="F.location=this.value"></div>'+
 '</div><label class="label">Доставка</label><input class="input" value="'+esc(F.delivery)+'" oninput="F.delivery=this.value">'+
-'<label class="label">Фото</label>'+(editMedia.length?'<div class="mgrid">'+editMedia.map((m,i)=>'<div class="m"><img src="'+(m.blob?murl(m):'')+'">'+(m.isMain?'<span class="star">⭐</span>':'')+'<button class="del" onclick="rmMedia('+i+')">✕</button><button class="main" onclick="mainMedia('+i+')">⭐</button></div>').join('')+'</div>':'')+
+'<label class="label">Фото</label>'+(editMedia.length?'<div class="mgrid">'+editMedia.map(function(m,i){return '<div class="m"><img src="'+(m.blob?murl(m):'')+'">'+(m.isMain?'<span class="star">⭐</span>':'')+'<button class="del" onclick="rmMedia('+i+')">✕</button><button class="main" onclick="mainMedia('+i+')">⭐</button></div>';}).join('')+'</div>':'')+
 '<input type="file" id="fin" accept="image/*,video/*" multiple style="display:none" onchange="addFiles(this.files)"><button class="btn sec wide" onclick="document.getElementById(\'fin\').click()">📷 Додати фото/відео</button>'+
-'<div style="margin-top:14px" class="row"><button class="btn wide" onclick="saveListing()">💾 Зберегти</button>'+(editing?'<button class="btn green" onclick="openPublish(['+editing+'])">▶ Публікація</button><button class="btn sec" onclick="shareNative('+editing+')">📤</button>':'')+'</div></div>'+
-'<div class="card"><b style="font-size:13px">✨ Якість: <span id="qs" style="color:var(--blue)">'+q.s+'/100</span></b><div style="background:#e2e8f0;height:6px;border-radius:3px;margin:8px 0"><div id="qb" style="background:var(--blue);height:6px;border-radius:3px;width:'+q.s+'%"></div></div><div id="qi">'+q.iss.map(i=>'<div class="warn">⚠️ '+i+'</div>').join('')+'</div></div>'+
+'<div style="margin-top:14px" class="row"><button class="btn wide" onclick="saveListing()">💾 Зберегти</button>'+(editing?'<button class="btn green" onclick="openPublish(['+editing+'])">▶</button><button class="btn sec" onclick="shareNative('+editing+')">📤</button>':'')+'</div></div>'+
+'<div class="card"><b style="font-size:13px">✨ Якість: <span id="qs" style="color:var(--blue)">'+q.s+'/100</span></b><div style="background:#e2e8f0;height:6px;border-radius:3px;margin:8px 0"><div id="qb" style="background:var(--blue);height:6px;border-radius:3px;width:'+q.s+'%"></div></div><div id="qi">'+q.iss.map(function(i){return '<div class="warn">⚠️ '+i+'</div>';}).join('')+'</div></div>'+
 (editing?vPubs(editing):'');}
-function qRefresh(){const q=quality();const a=document.getElementById('qs');if(!a)return;a.textContent=q.s+'/100';document.getElementById('qb').style.width=q.s+'%';document.getElementById('qi').innerHTML=q.iss.map(i=>'<div class="warn">⚠️ '+i+'</div>').join('');}
-function aiTitle(){const p=[F.brand,F.model,F.condition==='new'?'новий':null,F.category].filter(Boolean).join(' ');if(p){F.title=p;render();toast('Запропоновано','ok');}}
-async function addFiles(fs){for(const f of fs){if(f.type.startsWith('image/')){try{const b=await createImageBitmap(f);let w=b.width,h=b.height;const mx=2000;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(b,0,0,w,h);const bl=await new Promise(r=>c.toBlob(r,'image/jpeg',0.85));editMedia.push({blob:bl,type:'image',name:f.name,w,h,isMain:editMedia.length===0,pos:editMedia.length});}catch(e){toast('Не оброблено: '+f.name,'err');}}else if(f.type.startsWith('video/')){if(f.size>50*1024*1024){toast('Відео >50МБ','err');continue;}editMedia.push({blob:f,type:'video',name:f.name,isMain:false,pos:editMedia.length});}}render();toast('Додано: '+fs.length,'ok');}
-function rmMedia(i){editMedia.splice(i,1);editMedia.forEach((m,x)=>{m.pos=x;if(x===0)m.isMain=true;});render();}
-function mainMedia(i){editMedia.forEach((m,x)=>m.isMain=x===i);render();}
-async function saveListing(){if(!F.title||F.title.length<3)return toast('Заголовок ≥3 символи','err');if(!F.description||F.description.length<10)return toast('Опис ≥10 символів','err');if(!(+F.price>0))return toast('Вкажіть ціну','err');
-const now=Date.now();const rec={...F,price:+F.price,updatedAt:now,status:F.status||'draft'};let id=editing;
-if(id){rec.id=id;await DB.put('listings',rec);}else{rec.createdAt=now;id=await DB.put('listings',rec);editing=id;}
-const keep=editMedia.filter(m=>m.id).map(m=>m.id);
-for(const e of mediaOf(id).map(m=>m.id))if(!keep.includes(e)){await DB.del('media',e);delete urlCache[e];}
-for(let i=0;i<editMedia.length;i++){const m=editMedia[i];m.listingId=id;m.pos=i;if(i===0)m.isMain=true;const nid=await DB.put('media',{blob:m.blob,type:m.type,name:m.name,w:m.w,h:m.h,isMain:m.isMain,pos:m.pos,listingId:id});if(!m.id)m.id=nid;}
-await log('save','Збережено: '+F.title);toast('Збережено','ok');await loadAll();go('edit',id);}
-function vPubs(id){const ps=pubsOf(id);if(!ps.length)return '';
-return '<div class="card"><b style="font-size:13px">🎯 Центр публікацій</b>'+ps.map(p=>{const pf=plOf(p.platformCode);
-const acts=(p.status==='needs_action'?'<button class="btn sm sec" onclick="copyPub('+p.id+')">📋 Текст</button><button class="btn sm sec" onclick="savePhotos('+p.listingId+')">📷 Фото</button><button class="btn sm" onclick="window.open(\''+p.externalUrl+'\')">↗ Сайт</button><button class="btn sm green" onclick="markPub('+p.id+',\'published\')">✅ Готово</button><button class="btn sm danger" onclick="markPub('+p.id+',\'error\')">✕</button>':'<button class="btn sm sec" onclick="retryPub('+p.id+')">🔄</button><button class="btn sm danger" onclick="delPub('+p.id+')">✕</button>');
-return '<div class="pf"><div><span class="dot '+(p.status==='published'?'on':'off')+'"></span><span class="n">'+pf.icon+' '+esc(pf.name)+'</span> <span class="chip '+(STATUS[p.status]?STATUS[p.status][1]:'')+'">'+(STATUS[p.status]?STATUS[p.status][0]:p.status)+'</span><div class="d">'+fmtd(p.createdAt)+(p.error?' · '+esc(p.error):'')+'</div></div><div class="row" style="flex:0;flex-wrap:wrap;justify-content:flex-end">'+acts+'</div></div>';}).join('')+'</div>';}
-async function copyPub(pid){const p=await DB.get('publications',pid);try{await navigator.clipboard.writeText(p.adapted);toast('Текст скопійовано','ok');}catch(e){showModal('<h3>Скопіюйте текст</h3><div class="pre">'+esc(p.adapted)+'</div>');}}
-async function savePhotos(lid){const ms=mediaOf(lid).filter(m=>m.type==='image');if(!ms.length)return toast('Немає фото');for(const m of ms){const a=document.createElement('a');a.href=murl(m);a.download=m.name||('photo.jpg');a.click();await new Promise(r=>setTimeout(r,300));}toast('Фото збережено у завантаження','ok');}
-async function markPub(pid,st){const p=await DB.get('publications',pid);p.status=st;p.updatedAt=Date.now();await DB.put('publications',p);await log(st==='published'?'publish':'error',plOf(p.platformCode).name+' → '+st);await loadAll();render();toast('Статус оновлено','ok');}
-async function retryPub(pid){const p=await DB.get('publications',pid);const l=await DB.get('listings',p.listingId);await doPublishOne(l,p.platformCode,p);await loadAll();render();}
-async function delPub(pid){await DB.del('publications',pid);await loadAll();render();}
+function qRefresh(){var q=quality();var a=document.getElementById('qs');if(!a)return;a.textContent=q.s+'/100';document.getElementById('qb').style.width=q.s+'%';document.getElementById('qi').innerHTML=q.iss.map(function(i){return '<div class="warn">⚠️ '+i+'</div>';}).join('');}
+function aiTitle(){var p=[F.brand,F.model,F.condition==='new'?'новий':null,F.category].filter(Boolean).join(' ');if(p){F.title=p;render();toast('Запропоновано','ok');}}
+function addFiles(fs){var arr=Array.from(fs);var p=Promise.resolve();
+arr.forEach(function(f){p=p.then(function(){
+if(f.type.indexOf('image/')===0){return createImageBitmap(f).then(function(b){var w=b.width,h=b.height,mx=2000;if(w>mx||h>mx){var r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(b,0,0,w,h);return new Promise(function(rr){c.toBlob(rr,'image/jpeg',0.85);});}).then(function(bl){editMedia.push({blob:bl,type:'image',name:f.name,isMain:editMedia.length===0,pos:editMedia.length});}).catch(function(){toast('Не оброблено: '+f.name,'err');});}
+else if(f.type.indexOf('video/')===0){if(f.size>50*1024*1024){toast('Відео >50МБ','err');return;}editMedia.push({blob:f,type:'video',name:f.name,isMain:false,pos:editMedia.length});}
+});});
+p.then(function(){render();toast('Додано: '+arr.length,'ok');});}
+function rmMedia(i){editMedia.splice(i,1);editMedia.forEach(function(m,x){m.pos=x;if(x===0)m.isMain=true;});render();}
+function mainMedia(i){editMedia.forEach(function(m,x){m.isMain=(x===i);});render();}
+function saveListing(){if(!F.title||F.title.length<3)return toast('Заголовок ≥3 символи','err');if(!F.description||F.description.length<10)return toast('Опис ≥10 символів','err');if(!(+F.price>0))return toast('Вкажіть ціну','err');
+var now=Date.now();var rec=Object.assign({},F,{price:+F.price,updatedAt:now,status:F.status||'draft'});var id=editing;
+var chain=Promise.resolve();
+if(id){rec.id=id;chain=chain.then(function(){return DB.put('listings',rec);});}
+else{rec.createdAt=now;chain=chain.then(function(){return DB.put('listings',rec);}).then(function(nid){editing=id=nid;});}
+chain=chain.then(function(){var keep=editMedia.filter(function(m){return m.id;}).map(function(m){return m.id;});var p=Promise.resolve();
+mediaOf(id).forEach(function(m){if(keep.indexOf(m.id)<0)p=p.then(function(){delete urlCache[m.id];return DB.del('media',m.id);});});
+editMedia.forEach(function(m,i){p=p.then(function(){m.listingId=id;m.pos=i;if(i===0)m.isMain=true;return DB.put('media',{blob:m.blob,type:m.type,name:m.name,w:m.w,h:m.h,isMain:m.isMain,pos:m.pos,listingId:id});}).then(function(nid){if(!m.id)m.id=nid;});});
+return p;});
+chain.then(function(){log('save','Збережено: '+F.title);toast('Збережено','ok');return loadAll();}).then(function(){go('edit',editing);}).catch(function(e){toast(e.message,'err');});}
+function vPubs(id){var ps=pubsOf(id);if(!ps.length)return '';
+return '<div class="card"><b style="font-size:13px">🎯 Центр публікацій</b>'+ps.map(function(p){var pf=plOf(p.platformCode);
+var acts=(p.status==='needs_action'?'<button class="btn sm sec" onclick="copyPub('+p.id+')">📋</button><button class="btn sm sec" onclick="savePhotos('+p.listingId+')">📷</button><button class="btn sm" onclick="window.open(\''+p.externalUrl+'\')">↗</button><button class="btn sm green" onclick="markPub('+p.id+',\'published\')">✅</button><button class="btn sm danger" onclick="markPub('+p.id+',\'error\')">✕</button>':'<button class="btn sm sec" onclick="retryPub('+p.id+')">🔄</button><button class="btn sm danger" onclick="delPub('+p.id+')">✕</button>');
+return '<div class="pf"><div><span class="dot '+(p.status==='published'?'on':'off')+'"></span><span class="n">'+pf.icon+' '+esc(pf.name)+'</span> <span class="chip '+((STATUS[p.status]||['',''])[1])+'">'+((STATUS[p.status]||[p.status])[0])+'</span><div class="d">'+fmtd(p.createdAt)+(p.error?' · '+esc(p.error):'')+'</div></div><div class="row" style="flex:0;flex-wrap:wrap;justify-content:flex-end">'+acts+'</div></div>';}).join('')+'</div>';}
+function copyPub(pid){DB.get('publications',pid).then(function(p){if(navigator.clipboard)navigator.clipboard.writeText(p.adapted).then(function(){toast('Текст скопійовано','ok');},function(){showModal('<h3>Скопіюйте текст</h3><div class="pre">'+esc(p.adapted)+'</div>');});else showModal('<h3>Скопіюйте текст</h3><div class="pre">'+esc(p.adapted)+'</div>');});}
+function savePhotos(lid){var ms=mediaOf(lid).filter(function(m){return m.type==='image';});if(!ms.length)return toast('Немає фото');
+var p=Promise.resolve();ms.forEach(function(m){p=p.then(function(){var a=document.createElement('a');a.href=murl(m);a.download=m.name||'photo.jpg';a.click();return new Promise(function(r){setTimeout(r,300);});});});
+p.then(function(){toast('Фото збережено у завантаження','ok');});}
+function markPub(pid,st){DB.get('publications',pid).then(function(p){p.status=st;p.updatedAt=Date.now();return DB.put('publications',p);}).then(function(){log(st==='published'?'publish':'error','статус оновлено');return loadAll();}).then(render).then(function(){toast('Статус оновлено','ok');});}
+function retryPub(pid){DB.get('publications',pid).then(function(p){return DB.get('listings',p.listingId).then(function(l){return doPublishOne(l,p.platformCode,p);});}).then(function(){return loadAll();}).then(render);}
+function delPub(pid){DB.del('publications',pid).then(function(){return loadAll();}).then(render);}
 /* ===== ПУБЛІЧНЕ ПОСИЛАННЯ ===== */
-async function thumbData(m,max,q){return new Promise(res=>{const i=new Image();i.onload=()=>{let w=i.width,h=i.height;const r=Math.min(1,max/Math.max(w,h));w=Math.round(w*r);h=Math.round(h*r);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(i,0,0,w,h);res(c.toDataURL('image/jpeg',q));};i.onerror=()=>res(null);i.src=murl(m);});}
-async function gzipB(s){const c=new CompressionStream('gzip');const w=c.writable.getWriter();w.write(new TextEncoder().encode(s));w.close();return new Uint8Array(await new Response(c.readable).arrayBuffer());}
-function b64u(u){let s='';u.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
-function unb64u(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const b=atob(s);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
-async function gunzipB(u){const c=new DecompressionStream('gzip');const w=c.writable.getWriter();w.write(u);w.close();return await new Response(c.readable).text();}
-async function pubLink(l){const ms=mediaOf(l.id).filter(m=>m.type==='image');let ph=[];if(ms.length){const t=await thumbData(ms[0],360,0.6);if(t)ph=[t];}
-const o={t:l.title,d:l.description,p:l.price,c:l.currency,cat:l.category,loc:l.location,ct:{ph:PROFILE.phone,em:PROFILE.email,tg:PROFILE.tg},ph};
-return location.origin+location.pathname+'#v='+b64u(await gzipB(JSON.stringify(o)));}
-function renderPublic(o){document.body.classList.add('pubmode');
-const ct=o.ct||{};
+function thumbData(m,max,q){return new Promise(function(res){var i=new Image();i.onload=function(){var w=i.width,h=i.height;var r=Math.min(1,max/Math.max(w,h));w=Math.round(w*r);h=Math.round(h*r);var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(i,0,0,w,h);res(c.toDataURL('image/jpeg',q));};i.onerror=function(){res(null);};i.src=murl(m);});}
+function b64u(u){var s='';u.forEach(function(b){s+=String.fromCharCode(b);});return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function unb64u(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var b=atob(s);var u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+function pubLink(l){var ms=mediaOf(l.id).filter(function(m){return m.type==='image';});
+var chain=Promise.resolve([]);
+if(ms.length)chain=thumbData(ms[0],360,0.6).then(function(t){return t?[t]:[];});
+return chain.then(function(ph){var o={t:l.title,d:l.description,p:l.price,c:l.currency,cat:l.category,loc:l.location,ct:{ph:PROFILE.phone,em:PROFILE.email,tg:PROFILE.tg},ph:ph};
+var j=JSON.stringify(o);
+if(typeof CompressionStream!=='undefined'){var c=new CompressionStream('gzip');var w=c.writable.getWriter();w.write(new TextEncoder().encode(j));w.close();
+return new Response(c.readable).arrayBuffer().then(function(ab){return location.origin+location.pathname+'#v=g'+b64u(new Uint8Array(ab));});}
+return location.origin+location.pathname+'#v=u'+b64u(new TextEncoder().encode(j));});}
+function decodeLink(s){var pref=s[0],rest=s.slice(1);
+if(pref==='g'){var c=new DecompressionStream('gzip');var w=c.writable.getWriter();w.write(unb64u(rest));w.close();return new Response(c.readable).text();}
+return Promise.resolve(new TextDecoder().decode(unb64u(rest)));}
+function renderPublic(o){document.body.classList.add('pubmode');var ct=o.ct||{};
 document.getElementById('view').innerHTML='<div class="card" style="margin-top:20px">'+(o.ph&&o.ph[0]?'<img src="'+o.ph[0]+'" style="width:100%;border-radius:12px;margin-bottom:12px">':'')+'<div class="pubhero" style="margin:-14px -14px 12px"><div class="p">'+o.p+' '+o.c+'</div><div style="font-size:18px;font-weight:700">'+esc(o.t)+'</div></div>'+
 '<div class="chip">'+esc(o.cat||'')+'</div><div class="chip">📍 '+esc(o.loc||'-')+'</div>'+
 '<p style="white-space:pre-wrap;margin:12px 0">'+esc(o.d)+'</p>'+
-'<div class="row" style="flex-wrap:wrap">'+(ct.ph?'<a class="btn green" style="text-decoration:none" href="tel:'+esc(ct.ph)+'">📞 Подзвонити</a>':'')+(ct.tg?'<a class="btn" style="text-decoration:none" href="https://t.me/'+esc(ct.tg.replace('@',''))+'" target="_blank">✈️ Telegram</a>':'')+(ct.em?'<a class="btn sec" style="text-decoration:none" href="mailto:'+esc(ct.em)+'">✉️ Email</a>':'')+'</div>'+
-'<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><button class="btn sec wide" onclick="importPublic()">💾 Зберегти в мій UniBoard</button><div class="mut" style="text-align:center;margin-top:8px">🇺🇦 UniBoard · оголошення опубліковано через додаток</div></div></div>';
+'<div class="row" style="flex-wrap:wrap">'+(ct.ph?'<a class="btn green" style="text-decoration:none" href="tel:'+esc(ct.ph)+'">📞 Подзвонити</a>':'')+(ct.tg?'<a class="btn" style="text-decoration:none" href="https://t.me/'+esc(String(ct.tg).replace('@',''))+'" target="_blank">✈️ Telegram</a>':'')+(ct.em?'<a class="btn sec" style="text-decoration:none" href="mailto:'+esc(ct.em)+'">✉️ Email</a>':'')+'</div>'+
+'<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><button class="btn sec wide" onclick="importPublic()">💾 Зберегти в мій UniBoard</button><div class="mut" style="text-align:center;margin-top:8px">🇺🇦 UniBoard</div></div></div>';
 window._pub=o;}
-async function importPublic(){const o=window._pub;if(!o)return;const now=Date.now();
-const id=await DB.put('listings',{title:o.t,description:o.d,price:o.p,currency:o.c,category:o.cat,location:o.loc,offerType:'sale',condition:'used',brand:'',model:'',delivery:'',createdAt:now,updatedAt:now,status:'draft'});
-if(o.ph&&o.ph[0]){const bl=await (await fetch(o.ph[0])).blob();await DB.put('media',{blob:bl,type:'image',name:'import.jpg',isMain:true,pos:0,listingId:id});}
-location.hash='';await loadAll();document.body.classList.remove('pubmode');go('edit',id);toast('Імпортовано','ok');}
+function importPublic(){var o=window._pub;if(!o)return;var now=Date.now();
+DB.put('listings',{title:o.t,description:o.d,price:o.p,currency:o.c,category:o.cat,location:o.loc,offerType:'sale',condition:'used',brand:'',model:'',delivery:'',createdAt:now,updatedAt:now,status:'draft'}).then(function(id){
+var chain=Promise.resolve();
+if(o.ph&&o.ph[0])chain=fetch(o.ph[0]).then(function(r){return r.blob();}).then(function(bl){return DB.put('media',{blob:bl,type:'image',name:'import.jpg',isMain:true,pos:0,listingId:id});});
+return chain.then(function(){location.hash='';document.body.classList.remove('pubmode');return loadAll();}).then(function(){go('edit',id);toast('Імпортовано','ok');});});}
 /* ===== АДАПТАЦІЯ / ПУБЛІКАЦІЯ ===== */
-function adapt(l,code){const w=[];let t=l.title,d=l.description;
-const lim={olx:[100,32000],izi:[100,10000],prom:[255,20000],shafa:[100,3000],fb_market:[100,1000],kidstaff:[100,10000],crafta:[150,15000],besplatka:[100,10000],flagma:[120,15000],mastodon:[500,500]}[code]||[200,10000];
+function adapt(l,code){var w=[];var t=l.title,d=l.description;
+var lim={olx:[100,32000],izi:[100,10000],prom:[255,20000],shafa:[100,3000],fb_market:[100,1000],kidstaff:[100,10000],crafta:[150,15000],besplatka:[100,10000],flagma:[120,15000],mastodon:[500,500]}[code]||[200,10000];
 if(t.length>lim[0]){w.push('Заголовок обрізано до '+lim[0]);t=t.slice(0,lim[0]);}
 if(d.length>lim[1]){w.push('Опис обрізано до '+lim[1]);d=d.slice(0,lim[1]);}
-const cond={new:'новий',used:'вживаний',ref:'відновлений'}[l.condition]||'-';
-const plain=t+'\n\n💰 '+l.price+' '+l.c2+'\n📦 '+cond+'\n📍 '+(l.location||'-')+'\n🚚 '+(l.delivery||'-')+'\n📞 '+(PROFILE.phone||'-')+'\n\n'+d;
+var cond={new:'новий',used:'вживаний',ref:'відновлений'}[l.condition]||'-';
+var plain=t+'\n\n💰 '+l.price+' '+l.currency+'\n📦 '+cond+'\n📍 '+(l.location||'-')+'\n🚚 '+(l.delivery||'-')+'\n📞 '+(PROFILE.phone||'-')+'\n\n'+d;
 if(code==='telegram')return{text:'<b>'+esc(t)+'</b>\n\n💰 '+l.price+' '+l.currency+'\n📍 '+esc(l.location||'-')+'\n📞 '+esc(PROFILE.phone||'-')+'\n\n'+esc(d),warn:w};
-if(code==='mastodon'){let m=t+'\n'+l.price+' '+l.currency+' · '+(l.location||'')+'\n'+d;if(m.length>500){m=m.slice(0,497)+'...';w.push('Mastodon: 500 симв.');}return{text:m,warn:w};}
+if(code==='mastodon'){var m=t+'\n'+l.price+' '+l.currency+' · '+(l.location||'')+'\n'+d;if(m.length>500){m=m.slice(0,497)+'...';w.push('Mastodon: ліміт 500');}return{text:m,warn:w};}
 return{text:plain,warn:w};}
 function openPublish(ids){pubIds=ids;pubSel=[];
-const grp=(g,ttl)=>{const arr=PL.filter(p=>p.grp===g);if(!arr.length)return '';
-return '<div class="grp">'+ttl+'</div>'+arr.map(p=>{const c=CONN[p.code];const dis=g==='auto'&&!(c&&c.on);
-return '<label class="pf" style="cursor:'+(dis?'not-allowed':'pointer')+';opacity:'+(dis?'.5':'1')+'"><div><span class="n">'+p.icon+' '+p.name+'</span><div class="d">'+p.desc+(dis?' · ⚠️ спершу підключіть':'')+'</div></div><input type="checkbox" style="width:22px;height:22px" '+(dis?'disabled':'')+' value="'+p.code+'" onchange="pubSel=Array.from(document.querySelectorAll(\'#modalRoot input:checked\')).map(i=>i.value)"></label>';}).join('');};
+function grp(g,ttl){var arr=PL.filter(function(p){return p.grp===g;});if(!arr.length)return '';
+return '<div class="grp">'+ttl+'</div>'+arr.map(function(p,i){var c=CONN[p.code];var dis=(g==='auto'&&!(c&&c.on));
+return '<label class="pf" style="cursor:'+(dis?'not-allowed':'pointer')+';opacity:'+(dis?'.5':'1')+'"><div><span class="n">'+p.icon+' '+p.name+'</span><div class="d">'+p.desc+(dis?' · ⚠️ спершу підключіть':'')+'</div></div><input type="checkbox" style="width:22px;height:22px" '+(dis?'disabled':'')+' value="'+p.code+'" onchange="pubSel=Array.from(document.querySelectorAll(\'#modalRoot input:checked\')).map(function(i){return i.value;})"></label>';}).join('');}
 showModal('<h3>Куди публікувати?</h3>'+grp('auto','⚡ Автоматично')+grp('share','📤 Один дотик')+grp('manual','📋 Крок за кроком')+'<div class="row" style="margin-top:14px"><button class="btn sec" onclick="closeModal()">Скасувати</button><button class="btn" onclick="previewPublish()">Далі →</button></div>');}
-async function previewPublish(){if(!pubSel.length)return toast('Оберіть платформи','err');
-const l=await DB.get('listings',pubIds[0]);let h='<h3>Попередній перегляд</h3>';
-for(const code of pubSel){const p=plOf(code);const a=adapt(l,code);
-h+='<div class="card"><b>'+p.icon+' '+p.name+'</b>'+(p.grp==='auto'?'<div class="okbox">⚡ Буде опубліковано автоматично</div>':p.grp==='share'?'<div class="okbox">📤 Відкриється шеринг з публічним посиланням</div>':'<div class="warn">📋 Скопіюємо текст, відкриємо сайт — ви завершите публікацію (кроки в центрі публікацій)</div>')+(a.warn.length?a.warn.map(x=>'<div class="warn">⚠️ '+x+'</div>').join(''):'')+'<div class="pre">'+esc(a.text)+'</div></div>';}
-h+='<div class="row"><button class="btn sec" onclick="openPublish(pubIds)">← Назад</button><button class="btn green" onclick="runPublish()">✅ Підтвердити</button></div>';showModal(h);}
-async function runPublish(){closeModal();toast('Публікація...');const manualDone=[];
-for(const lid of pubIds){const l=await DB.get('listings',lid);
-for(const code of pubSel){const ex=PUB.find(p=>p.listingId===lid&&p.platformCode===code);const r=await doPublishOne(l,code,ex);if(r==='manual')manualDone.push(lid);}}
-sel=[];await loadAll();render();
-if(manualDone.length)openManual(manualDone[0]);
-toast('Готово. Перевірте статуси','ok');}
-async function doPublishOne(l,code,ex){const p=plOf(code);const rec=ex?{...ex}:{listingId:l.id,platformCode:code,createdAt:Date.now()};
-rec.status='publishing';rec.error=null;const pid=await DB.put('publications',rec);
-try{const a=adapt(l,code);const ms=mediaOf(l.id).filter(m=>m.type==='image');
+function previewPublish(){if(!pubSel.length)return toast('Оберіть платформи','err');
+DB.get('listings',pubIds[0]).then(function(l){var h='<h3>Попередній перегляд</h3>';
+pubSel.forEach(function(code){var p=plOf(code);var a=adapt(l,code);
+h+='<div class="card"><b>'+p.icon+' '+p.name+'</b>'+(p.grp==='auto'?'<div class="okbox">⚡ Буде опубліковано автоматично</div>':p.grp==='share'?'<div class="okbox">📤 Відкриється шеринг з публічним посиланням</div>':'<div class="warn">📋 Скопіюємо текст і відкриємо сайт — ви завершите публікацію кроками</div>')+(a.warn.length?a.warn.map(function(x){return '<div class="warn">⚠️ '+x+'</div>';}).join(''):'')+'<div class="pre">'+esc(a.text)+'</div></div>';});
+h+='<div class="row"><button class="btn sec" onclick="openPublish(pubIds)">← Назад</button><button class="btn green" onclick="runPublish()">✅ Підтвердити</button></div>';showModal(h);});}
+function runPublish(){closeModal();toast('Публікація...');var manualLid=null;var p=Promise.resolve();
+pubIds.forEach(function(lid){pubSel.forEach(function(code){p=p.then(function(){return DB.get('listings',lid).then(function(l){return doPublishOne(l,code,null);}).then(function(r){if(r==='manual')manualLid=lid;});});});});
+p.then(function(){sel=[];return loadAll();}).then(render).then(function(){if(manualLid)openManual(manualLid);toast('Готово. Перевірте статуси','ok');});}
+function doPublishOne(l,code,ex){var p=plOf(code);var rec=ex?Object.assign({},ex):{listingId:l.id,platformCode:code,createdAt:Date.now()};
+rec.status='publishing';rec.error=null;
+return DB.put('publications',rec).then(function(pid){rec.id=pid;
+var a=adapt(l,code);var ms=mediaOf(l.id).filter(function(m){return m.type==='image';});var chain=Promise.resolve();
 if(p.grp==='auto'){
- if(code==='telegram'){const mid=await tgSend(CONN.telegram,a.text,ms.map(m=>m.blob));rec.status='published';rec.externalId=String(mid);await log('publish','⚡ Telegram: '+l.title);}
- else if(code==='discord'){await dcSend(CONN.discord.webhook,a.text,ms.map(m=>m.blob));rec.status='published';await log('publish','⚡ Discord: '+l.title);}
- else if(code==='mastodon'){const u=await maSend(CONN.mastodon.instance,CONN.mastodon.token,a.text);rec.status='published';rec.externalUrl=u;await log('publish','⚡ Mastodon: '+l.title);}
-}else if(p.grp==='share'){const u=await pubLink(l);const t=l.title+' — '+l.price+' '+l.currency;
-const url=p.share.replace('{U}',encodeURIComponent(u)).replace('{T}',encodeURIComponent(t));
-window.open(url,'_blank');rec.status='published';rec.externalUrl=url;rec.adapted=a.text;await log('publish','📤 '+p.name+': '+l.title);}
-else{try{await navigator.clipboard.writeText(a.text);}catch(e){}
-rec.status='needs_action';rec.externalUrl=p.url;rec.adapted=a.text;await log('publish','📋 '+p.name+' (кроки): '+l.title);return 'manual';}
-}catch(e){rec.status='error';rec.error=String(e.message||e);await log('error','❌ '+p.name+': '+rec.error);}
-rec.updatedAt=Date.now();await DB.put('publications',rec);return rec.status;}
-function openManual(lid){const ps=pubsOf(lid).filter(p=>p.status==='needs_action');if(!ps.length)return;
-showModal('<h3>📋 Завершення публікації</h3><p class="mut">Текст уже скопійовано в буфер. Виконайте кроки для кожної платформи:</p>'+ps.map(p=>{const pf=plOf(p.platformCode);
-return '<div class="card"><b>'+pf.icon+' '+pf.name+'</b><div class="step"><span class="num">1</span><button class="btn sm sec" onclick="copyPub('+p.id+')">📋 Копіювати текст</button><button class="btn sm sec" onclick="savePhotos('+p.listingId+')">📷 Зберегти фото</button></div><div class="step"><span class="num">2</span><button class="btn sm" onclick="window.open(\''+p.externalUrl+'\')">↗ Відкрити сайт і вставити</button></div><div class="step"><span class="num">3</span><button class="btn sm green" onclick="markPub('+p.id+',\'published\');closeModal()">✅ Я опублікував</button><button class="btn sm danger" onclick="markPub('+p.id+',\'error\');closeModal()">✕ Не вийшло</button></div></div>';}).join(''));}
+ if(code==='telegram')chain=tgSend(CONN.telegram,a.text,ms.map(function(m){return m.blob;})).then(function(mid){rec.status='published';rec.externalId=String(mid);log('publish','⚡ Telegram: '+l.title);});
+ else if(code==='discord')chain=dcSend(CONN.discord.webhook,a.text,ms.map(function(m){return m.blob;})).then(function(){rec.status='published';log('publish','⚡ Discord: '+l.title);});
+ else if(code==='mastodon')chain=maSend(CONN.mastodon.instance,CONN.mastodon.token,a.text).then(function(u){rec.status='published';rec.externalUrl=u;log('publish','⚡ Mastodon: '+l.title);});
+}else if(p.grp==='share'){chain=pubLink(l).then(function(u){var t=l.title+' — '+l.price+' '+l.currency;var url=p.share.replace('{U}',encodeURIComponent(u)).replace('{T}',encodeURIComponent(t));window.open(url,'_blank');rec.status='published';rec.externalUrl=url;rec.adapted=a.text;log('publish','📤 '+p.name+': '+l.title);});}
+else{chain=Promise.resolve().then(function(){if(navigator.clipboard)return navigator.clipboard.writeText(a.text).catch(function(){});}).then(function(){rec.status='needs_action';rec.externalUrl=p.url;rec.adapted=a.text;log('publish','📋 '+p.name+': '+l.title);});}
+return chain.catch(function(e){rec.status='error';rec.error=String(e.message||e);log('error','❌ '+p.name+': '+rec.error);}).then(function(){rec.updatedAt=Date.now();return DB.put('publications',rec);}).then(function(){return rec.status==='needs_action'?'manual':rec.status;});});}
+function openManual(lid){var ps=pubsOf(lid).filter(function(p){return p.status==='needs_action';});if(!ps.length)return;
+showModal('<h3>📋 Завершення публікації</h3><p class="mut">Текст уже скопійовано. Виконайте кроки:</p>'+ps.map(function(p){var pf=plOf(p.platformCode);
+return '<div class="card"><b>'+pf.icon+' '+pf.name+'</b><div class="step"><span class="num">1</span><button class="btn sm sec" onclick="copyPub('+p.id+')">📋 Текст</button><button class="btn sm sec" onclick="savePhotos('+p.listingId+')">📷 Фото</button></div><div class="step"><span class="num">2</span><button class="btn sm" onclick="window.open(\''+p.externalUrl+'\')">↗ Відкрити сайт і вставити</button></div><div class="step"><span class="num">3</span><button class="btn sm green" onclick="markPub('+p.id+',\'published\');closeModal()">✅ Я опублікував</button><button class="btn sm danger" onclick="markPub('+p.id+',\'error\');closeModal()">✕ Не вийшло</button></div></div>';}).join(''));}
 /* ===== АВТО-АДАПТЕРИ ===== */
-async function tgSend(c,text,blobs){const F=m=>'https://api.telegram.org/bot'+c.token+'/'+m;
-if(blobs.length===1){const fd=new FormData();fd.append('chat_id',c.chat);fd.append('caption',text);fd.append('parse_mode','HTML');fd.append('photo',blobs[0],'photo.jpg');const r=await fetch(F('sendPhoto'),{method:'POST',body:fd});const d=await r.json();if(!d.ok)throw new Error(d.description);return d.result.message_id;}
-if(blobs.length>1){const fd=new FormData();fd.append('chat_id',c.chat);const mj=[];blobs.slice(0,10).forEach((b,i)=>{const fn='f'+i;fd.append(fn,b,fn+'.jpg');mj.push(i===0?{type:'photo',media:'attach://'+fn,caption:text,parse_mode:'HTML'}:{type:'photo',media:'attach://'+fn});});fd.append('media',JSON.stringify(mj));const r=await fetch(F('sendMediaGroup'),{method:'POST',body:fd});const d=await r.json();if(!d.ok)throw new Error(d.description);return d.result[0].message_id;}
-const r=await fetch(F('sendMessage'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:c.chat,text,parse_mode:'HTML'})});const d=await r.json();if(!d.ok)throw new Error(d.description);return d.result.message_id;}
-async function dcSend(hook,text,blobs){if(blobs.length){const fd=new FormData();fd.append('payload_json',JSON.stringify({content:text.slice(0,2000)}));blobs.slice(0,10).forEach((b,i)=>fd.append('files['+i+']',b,'photo.jpg'));const r=await fetch(hook,{method:'POST',body:fd});if(!r.ok)throw new Error('Discord '+r.status);return;}
-const r=await fetch(hook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:text.slice(0,2000)})});if(!r.ok)throw new Error('Discord '+r.status);}
-async function maSend(inst,token,text){const r=await fetch(inst.replace(/\/$/,'')+'/api/v1/statuses',{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({status:text})});if(!r.ok)throw new Error('Mastodon '+r.status);const d=await r.json();return d.url;}
-/* ===== ПЛАТФОРМИ (сторінка) ===== */
-function vPlatforms(){const grp=(g,ttl)=>'<div class="grp">'+ttl+'</div>'+PL.filter(p=>p.grp===g).map(p=>{const c=CONN[p.code];
-return '<div class="card"><div class="pf" style="border:none;padding:0"><div><span class="dot '+(c&&c.on?'on':'off')+'"></span><span class="n">'+p.icon+' '+p.name+'</span><div class="d">'+p.desc+'</div></div>'+(p.grp==='auto'?(c&&c.on?'<button class="btn sm danger" onclick="disConn(\''+p.code+'\')">Відключити</button>':'<button class="btn sm" onclick="connForm(\''+p.code+'\')">Підключити</button>'):'<span class="chip '+(p.grp==='share'?'pub':'act')+'">'+(p.grp==='share'?'1 дотик':'кроки')+'</span>')+'</div></div>';}).join('');
-return '<div class="h2">Платформи</div><p class="mut" style="margin:-6px 0 10px">⚡ Автоматичні потребують підключення. 📤 та 📋 працюють одразу.</p>'+grp('auto','⚡ Автоматична публікація')+grp('share','📤 Шеринг одним дотиком')+grp('manual','📋 Керовані ручні');}
-function connForm(code){const p=plOf(code);
-showModal('<h3>'+p.icon+' '+p.name+'</h3><p class="mut">'+p.desc+'</p>'+p.fields.map(([k,lb])=>'<label class="label">'+lb+'</label><input class="input" id="cf_'+k+'">').join('')+'<div class="row" style="margin-top:14px"><button class="btn sec" onclick="closeModal()">Скасувати</button><button class="btn" onclick="doConn(\''+code+'\')">Підключити</button></div>');}
-async function doConn(code){const c={on:true};
-for(const [k] of (plOf(code).fields||[]))c[k]=document.getElementById('cf_'+k).value.trim();
-toast('Перевірка...');
-try{
- if(code==='telegram'){const r=await fetch('https://api.telegram.org/bot'+c.token+'/getMe');const d=await r.json();if(!d.ok)throw new Error(d.description);c.name=d.result.first_name;}
- if(code==='discord'){const r=await fetch(c.webhook);if(!r.ok)throw new Error('Webhook '+r.status);}
- if(code==='mastodon'){const r=await fetch(c.instance.replace(/\/$/,'')+'/api/v1/accounts/verify_credentials',{headers:{'Authorization':'Bearer '+c.token}});if(!r.ok)throw new Error('Mastodon '+r.status);}
-}catch(e){return toast('Помилка: '+e.message,'err');}
-CONN[code]=c;await kvSet('conn',CONN);await log('connect','Підключено: '+plOf(code).name);closeModal();render();toast('Підключено','ok');
-if(code==='telegram')startPoll();}
-async function disConn(code){delete CONN[code];await kvSet('conn',CONN);render();toast('Відключено');}
+function tgSend(c,text,blobs){var F=function(m){return 'https://api.telegram.org/bot'+c.token+'/'+m;};
+if(blobs.length===1){var fd=new FormData();fd.append('chat_id',c.chat);fd.append('caption',text);fd.append('parse_mode','HTML');fd.append('photo',blobs[0],'photo.jpg');return fetch(F('sendPhoto'),{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(d){if(!d.ok)throw new Error(d.description);return d.result.message_id;});}
+if(blobs.length>1){var fd2=new FormData();fd2.append('chat_id',c.chat);var mj=[];blobs.slice(0,10).forEach(function(b,i){var fn='f'+i;fd2.append(fn,b,fn+'.jpg');mj.push(i===0?{type:'photo',media:'attach://'+fn,caption:text,parse_mode:'HTML'}:{type:'photo',media:'attach://'+fn});});fd2.append('media',JSON.stringify(mj));return fetch(F('sendMediaGroup'),{method:'POST',body:fd2}).then(function(r){return r.json();}).then(function(d){if(!d.ok)throw new Error(d.description);return d.result[0].message_id;});}
+return fetch(F('sendMessage'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:c.chat,text:text,parse_mode:'HTML'})}).then(function(r){return r.json();}).then(function(d){if(!d.ok)throw new Error(d.description);return d.result.message_id;});}
+function dcSend(hook,text,blobs){if(blobs.length){var fd=new FormData();fd.append('payload_json',JSON.stringify({content:text.slice(0,2000)}));blobs.slice(0,10).forEach(function(b,i){fd.append('files['+i+']',b,'photo.jpg');});return fetch(hook,{method:'POST',body:fd}).then(function(r){if(!r.ok)throw new Error('Discord '+r.status);});}
+return fetch(hook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:text.slice(0,2000)})}).then(function(r){if(!r.ok)throw new Error('Discord '+r.status);});}
+function maSend(inst,token,text){return fetch(inst.replace(/\/$/,'')+'/api/v1/statuses',{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({status:text})}).then(function(r){if(!r.ok)throw new Error('Mastodon '+r.status);return r.json();}).then(function(d){return d.url;});}
+/* ===== ПЛАТФОРМИ ===== */
+function vPlatforms(){function grp(g,ttl){return '<div class="grp">'+ttl+'</div>'+PL.filter(function(p){return p.grp===g;}).map(function(p){var c=CONN[p.code];
+return '<div class="card"><div class="pf" style="border:none;padding:0"><div><span class="dot '+(c&&c.on?'on':'off')+'"></span><span class="n">'+p.icon+' '+p.name+'</span><div class="d">'+p.desc+'</div></div>'+(p.grp==='auto'?(c&&c.on?'<button class="btn sm danger" onclick="disConn(\''+p.code+'\')">Відключити</button>':'<button class="btn sm" onclick="connForm(\''+p.code+'\')">Підключити</button>'):'<span class="chip '+(p.grp==='share'?'pub':'act')+'">'+(p.grp==='share'?'1 дотик':'кроки')+'</span>')+'</div></div>';}).join('');}
+return '<div class="h2">Платформи</div><p class="mut" style="margin:-6px 0 10px">⚡ потребують підключення · 📤 та 📋 працюють одразу</p>'+grp('auto','⚡ Автоматична публікація')+grp('share','📤 Шеринг одним дотиком')+grp('manual','📋 Керовані ручні');}
+function connForm(code){var p=plOf(code);
+showModal('<h3>'+p.icon+' '+p.name+'</h3><p class="mut">'+p.desc+'</p>'+(p.fields||[]).map(function(f){return '<label class="label">'+f[1]+'</label><input class="input" id="cf_'+f[0]+'">';}).join('')+'<div class="row" style="margin-top:14px"><button class="btn sec" onclick="closeModal()">Скасувати</button><button class="btn" onclick="doConn(\''+code+'\')">Підключити</button></div>');}
+function doConn(code){var c={on:true};(plOf(code).fields||[]).forEach(function(f){c[f[0]]=document.getElementById('cf_'+f[0]).value.trim();});
+toast('Перевірка...');var chain=Promise.resolve();
+if(code==='telegram')chain=fetch('https://api.telegram.org/bot'+c.token+'/getMe').then(function(r){return r.json();}).then(function(d){if(!d.ok)throw new Error(d.description);c.name=d.result.first_name;});
+if(code==='discord')chain=fetch(c.webhook).then(function(r){if(!r.ok)throw new Error('Webhook '+r.status);});
+if(code==='mastodon')chain=fetch(c.instance.replace(/\/$/,'')+'/api/v1/accounts/verify_credentials',{headers:{'Authorization':'Bearer '+c.token}}).then(function(r){if(!r.ok)throw new Error('Mastodon '+r.status);});
+chain.then(function(){CONN[code]=c;return kvSet('conn',CONN);}).then(function(){log('connect','Підключено: '+plOf(code).name);closeModal();render();toast('Підключено','ok');if(code==='telegram')startPoll();}).catch(function(e){toast('Помилка: '+e.message,'err');});}
+function disConn(code){delete CONN[code];kvSet('conn',CONN).then(function(){render();toast('Відключено');});}
 /* ===== ПОВІДОМЛЕННЯ ===== */
-let pollTimer=null;
-function startPoll(){if(pollTimer)clearInterval(pollTimer);if(CONN.telegram&&CONN.telegram.on&&kvGet('tg_autopoll',false))pollTimer=setInterval(()=>tgPoll(true),60000);}
-function vMessages(){const ap=kvGet('tg_autopoll',false);
-let h='<div class="h2">Повідомлення</div>';
-if(CONN.telegram&&CONN.telegram.on)h+='<div class="card"><div class="pf" style="border:none;padding:0"><div><span class="n">✈️ Автов опитування Telegram</span><div class="d">Кожні 60 с, поки додаток відкрито</div></div><button class="btn sm '+(ap?'green':'sec')+'" onclick="togglePoll()">'+(ap?'Увімкнено':'Увімкнути')+'</button></div><button class="btn sec wide" style="margin-top:8px" onclick="tgPoll(false)">🔄 Отримати зараз</button></div>';
+var pollTimer=null;
+function startPoll(){if(pollTimer)clearInterval(pollTimer);if(CONN.telegram&&CONN.telegram.on&&AUTOPOLL)pollTimer=setInterval(function(){tgPoll(true);},60000);}
+function vMessages(){var h='<div class="h2">Повідомлення</div>';
+if(CONN.telegram&&CONN.telegram.on)h+='<div class="card"><div class="pf" style="border:none;padding:0"><div><span class="n">✈️ Автоопитування Telegram</span><div class="d">Кожні 60 с, поки додаток відкрито</div></div><button class="btn sm '+(AUTOPOLL?'green':'sec')+'" onclick="togglePoll()">'+(AUTOPOLL?'Увімкнено':'Увімкнути')+'</button></div><button class="btn sec wide" style="margin-top:8px" onclick="tgPoll(false)">🔄 Отримати зараз</button></div>';
 else h+='<div class="warn">💬 Вхідні повідомлення підтримує Telegram. Підключіть бота на вкладці «Платформи».</div>';
-const keys=[...new Set(MSG.map(m=>m.platform+'|'+m.sender))];
+var keys=[];MSG.forEach(function(m){var k=m.platform+'|'+m.sender;if(keys.indexOf(k)<0)keys.push(k);});_TK=keys;
 if(!MSG.length)h+='<div class="empty"><div class="big">💬</div>Поки немає повідомлень</div>';
-else h+=keys.map(k=>{const arr=MSG.filter(m=>(m.platform+'|'+m.sender)===k);const last=arr[arr.length-1];const un=arr.some(m=>!m.read);
-return '<div class="card" style="'+(un?'background:#eff6ff':'')+'" onclick="openThread(\''+esc(k).replace(/'/g,'\\\'')+'\')"><div class="pf" style="border:none;padding:0"><div><span class="n">'+(un?'🔵 ':'')+esc(last.sender)+'</span><div class="d">'+esc(last.platform)+' · '+fmtd(last.at)+' · '+arr.length+' повід.</div><div style="margin-top:4px;font-size:13px">'+esc(last.text.slice(0,80))+'</div></div><span style="font-size:20px;color:var(--mut)">›</span></div></div>';}).join('');
+else h+=keys.map(function(k,i){var arr=MSG.filter(function(m){return (m.platform+'|'+m.sender)===k;});var last=arr[arr.length-1];var un=arr.some(function(m){return !m.read;});
+return '<div class="card" style="'+(un?'background:#eff6ff':'')+'" onclick="openThread('+i+')"><div class="pf" style="border:none;padding:0"><div><span class="n">'+(un?'🔵 ':'')+esc(last.sender)+'</span><div class="d">'+esc(last.platform)+' · '+fmtd(last.at)+' · '+arr.length+' повід.</div><div style="margin-top:4px;font-size:13px">'+esc(String(last.text).slice(0,80))+'</div></div><span style="font-size:20px;color:var(--mut)">›</span></div></div>';}).join('');
 return h;}
-async function togglePoll(){const v=!(await kvGet('tg_autopoll',false));await kvSet('tg_autopoll',v);if(v)startPoll();render();toast(v?'Автов опитування увімкнено':'Вимкнено','ok');}
-function openThread(key){const arr=MSG.filter(m=>(m.platform+'|'+m.sender)===key);
-arr.forEach(async m=>{if(!m.read){m.read=true;await DB.put('messages',m);}});
-const canReply=arr[0].platform==='Telegram'&&CONN.telegram&&CONN.telegram.on&&arr[0].chatId;
-showModal('<h3>'+esc(arr[0].sender)+'</h3><div style="max-height:45vh;overflow:auto">'+arr.map(m=>'<div class="card" style="margin:6px 0;'+(m.out?'background:#eff6ff':'')+'"><div class="mut" style="font-size:10px">'+(m.out?'Ви → ':'')+fmtd(m.at)+'</div>'+esc(m.text)+'</div>').join('')+'</div>'+
-(canReply?'<div class="row" style="margin-top:10px"><input class="input" id="rep" placeholder="Ваша відповідь..."><button class="btn" onclick="sendReply('+arr[0].chatId+',\''+esc(arr[0].sender).replace(/'/g,'\\\'')+'\')">➤</button></div>':'<p class="mut" style="margin-top:8px">Відповідь можлива лише через Telegram-бот або на платформі покупця.</p>');
-loadAll().then(render);}
-async function sendReply(chat,sender){const t=document.getElementById('rep').value.trim();if(!t)return;
-await tgSend(CONN.telegram,t,[]);
-await DB.put('messages',{platform:'Telegram',sender:sender,text:t,read:true,out:true,chatId:chat,at:Date.now()});
-closeModal();await loadAll();render();toast('Надіслано','ok');}
-async function tgPoll(silent){const c=CONN.telegram;if(!c||!c.on)return;let off=await kvGet('tg_offset',0);
-try{const r=await fetch('https://api.telegram.org/bot'+c.token+'/getUpdates?offset='+off+'&limit=50');const d=await r.json();if(!d.ok)throw new Error(d.description);
-let n=0;for(const u of d.result){off=u.update_id+1;const m=u.message||u.channel_post;
-if(m&&m.text&&!m.from.is_bot){await DB.put('messages',{platform:'Telegram',sender:((m.chat.first_name||m.chat.title||'')+' '+(m.chat.last_name||'')).trim(),text:m.text,read:false,chatId:m.chat.id,at:m.date*1000});n++;}}
-await kvSet('tg_offset',off);await loadAll();renderNav();if(!silent){render();toast(n?'Нових повідомлень: '+n:'Немає нових','ok');}}catch(e){if(!silent)toast(e.message,'err');}}
+function togglePoll(){AUTOPOLL=!AUTOPOLL;kvSet('tg_autopoll',AUTOPOLL).then(function(){if(AUTOPOLL)startPoll();render();toast(AUTOPOLL?'Автоопитування увімкнено':'Вимкнено','ok');});}
+function openThread(i){var arr=MSG.filter(function(m){return (m.platform+'|'+m.sender)===_TK[i];});_TR=arr;
+Promise.all(arr.filter(function(m){return !m.read;}).map(function(m){m.read=true;return DB.put('messages',m);})).then(function(){loadAll().then(renderNav);});
+var canReply=arr[0].platform==='Telegram'&&CONN.telegram&&CONN.telegram.on&&arr[0].chatId;
+showModal('<h3>'+esc(arr[0].sender)+'</h3><div style="max-height:45vh;overflow:auto">'+arr.map(function(m){return '<div class="card" style="margin:6px 0;'+(m.out?'background:#eff6ff':'')+'"><div class="mut" style="font-size:10px">'+(m.out?'Ви → ':'')+fmtd(m.at)+'</div>'+esc(m.text)+'</div>';}).join('')+'</div>'+
+(canReply?'<div class="row" style="margin-top:10px"><input class="input" id="rep" placeholder="Ваша відповідь..."><button class="btn" onclick="sendReplyNow()">➤</button></div>':'<p class="mut" style="margin-top:8px">Відповідь можлива через Telegram-бот або на платформі покупця.</p>');}
+function sendReplyNow(){var el=document.getElementById('rep');var t=el?el.value.trim():'';if(!t||!_TR.length)return;
+tgSend(CONN.telegram,t,[]).then(function(){return DB.put('messages',{platform:'Telegram',sender:_TR[0].sender,text:t,read:true,out:true,chatId:_TR[0].chatId,at:Date.now()});}).then(function(){closeModal();return loadAll();}).then(render).then(function(){toast('Надіслано','ok');}).catch(function(e){toast(e.message,'err');});}
+function tgPoll(silent){var c=CONN.telegram;if(!c||!c.on)return Promise.resolve();
+return kvGet('tg_offset',0).then(function(off){return fetch('https://api.telegram.org/bot'+c.token+'/getUpdates?offset='+off+'&limit=50').then(function(r){return r.json();}).then(function(d){if(!d.ok)throw new Error(d.description);var n=0;var p=Promise.resolve();
+d.result.forEach(function(u){off=u.update_id+1;var m=u.message||u.channel_post;
+if(m&&m.text&&!m.from.is_bot){n++;p=p.then(function(){return DB.put('messages',{platform:'Telegram',sender:((m.chat.first_name||m.chat.title||'')+' '+(m.chat.last_name||'')).trim(),text:m.text,read:false,chatId:m.chat.id,at:m.date*1000});});}});
+return p.then(function(){return kvSet('tg_offset',off);}).then(function(){return loadAll();}).then(function(){renderNav();if(!silent){render();toast(n?'Нових повідомлень: '+n:'Немає нових','ok');}});});}).catch(function(e){if(!silent)toast(e.message,'err');});}
 /* ===== СТАТИСТИКА / ПОДІЇ / ПРОФІЛЬ ===== */
-function vStats(){const byPl={};PUB.forEach(p=>byPl[p.platformCode]=(byPl[p.platformCode]||0)+1);
-const mx=Math.max(1,...Object.values(byPl));
-return '<div class="h2">Статистика</div><div class="grid2" style="grid-template-columns:repeat(3,1fr)">'+[['L.length','Оголошень'],['L.filter(l=>l.status!==\'paused\').length','Активних'],['PUB.length','Публікацій'],['PUB.filter(p=>p.status===\'published\').length','Успішних'],['PUB.filter(p=>p.status===\'error\').length','Помилок'],['MSG.filter(m=>!m.read).length','Нових повід.']].map(([v,l])=>'<div class="stat"><div class="v">'+eval(v)+'</div><div class="l">'+l+'</div></div>').join('')+'</div>'+
-'<div class="card" style="margin-top:12px"><b style="font-size:13px">По платформах</b>'+Object.entries(byPl).map(([c,n])=>{const p=plOf(c);return '<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>'+p.icon+' '+esc(p.name)+'</span><span>'+n+'</span></div><div style="background:#e2e8f0;height:8px;border-radius:4px;margin-top:3px"><div style="background:var(--blue);height:8px;border-radius:4px;width:'+Math.round(n/mx*100)+'%"></div></div></div>';}).join('')||'<div class="mut">Немає даних</div>'+'</div>';}
-function vEvents(){return '<div class="h2">Журнал подій</div>'+(EV.length?EV.map(e=>'<div class="ev"><span class="t">'+fmtd(e.at)+'</span><span>'+esc(e.message)+'</span></div>').join(''):'<div class="empty">Подій немає</div>');}
-let deferredPrompt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
+function vStats(){var byPl={};PUB.forEach(function(p){byPl[p.platformCode]=(byPl[p.platformCode]||0)+1;});
+var mx=Math.max.apply(null,[1].concat(Object.values(byPl)));
+var cards=[['L.length','Оголошень'],['L.filter(function(l){return l.status!==\'paused\';}).length','Активних'],['PUB.length','Публікацій'],['PUB.filter(function(p){return p.status===\'published\';}).length','Успішних'],['PUB.filter(function(p){return p.status===\'error\';}).length','Помилок'],['MSG.filter(function(m){return !m.read;}).length','Нових повід.']];
+return '<div class="h2">Статистика</div><div class="grid2" style="grid-template-columns:repeat(3,1fr)">'+cards.map(function(c){return '<div class="stat"><div class="v">'+eval(c[0])+'</div><div class="l">'+c[1]+'</div></div>';}).join('')+'</div>'+
+'<div class="card" style="margin-top:12px"><b style="font-size:13px">По платформах</b>'+Object.keys(byPl).map(function(c){var p=plOf(c);var n=byPl[c];return '<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>'+p.icon+' '+esc(p.name)+'</span><span>'+n+'</span></div><div style="background:#e2e8f0;height:8px;border-radius:4px;margin-top:3px"><div style="background:var(--blue);height:8px;border-radius:4px;width:'+Math.round(n/mx*100)+'%"></div></div></div>';}).join('')||'<div class="mut">Немає даних</div>'+'</div>';}
+function vEvents(){return '<div class="h2">Журнал подій</div>'+(EV.length?EV.map(function(e){return '<div class="ev"><span class="t">'+fmtd(e.at)+'</span><span>'+esc(e.message)+'</span></div>';}).join(''):'<div class="empty">Подій немає</div>');}
+var deferredPrompt=null;window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredPrompt=e;});
 function installApp(){if(deferredPrompt)deferredPrompt.prompt();}
 function vProfile(){return '<div class="h2">Профіль</div><div class="card">'+
 '<label class="label">Ім\'я</label><input class="input" value="'+esc(PROFILE.name)+'" oninput="PROFILE.name=this.value">'+
@@ -357,22 +379,26 @@ function vProfile(){return '<div class="h2">Профіль</div><div class="card
 '<button class="btn wide" style="margin-top:12px" onclick="saveProfile()">💾 Зберегти</button></div>'+
 '<div class="card"><b style="font-size:13px">📲 Встановити додаток</b><div class="mut" style="margin:6px 0">Android: ⋮ → «Додати на головний екран» · iOS: Поділитися → «На головний екран»</div>'+(deferredPrompt?'<button class="btn wide" onclick="installApp()">📲 Встановити</button>':'<div class="mut">Використовуйте меню браузера</div>')+'</div>'+
 '<div class="card"><b style="font-size:13px">💾 Резервна копія</b><div class="mut" style="margin:6px 0">Перенесення між пристроями</div><div class="row"><button class="btn sec" onclick="exportBackup()">⬇ Експорт</button><button class="btn sec" onclick="document.getElementById(\'imp\').click()">⬆ Імпорт</button></div><input type="file" id="imp" accept=".json" style="display:none" onchange="importBackup(this.files[0])"></div>'+
-'<div class="card"><button class="btn sec wide" onclick="go(\'events\')">📜 Журнал подій</button></div><div class="mut" style="text-align:center">UniBoard v4 · 19 платформ · офлайн</div>';}
-async function saveProfile(){await kvSet('profile',PROFILE);toast('Збережено','ok');}
-async function exportBackup(){const d={listings:L,publications:PUB,messages:MSG,events:EV,profile:PROFILE,conn:CONN,media:[]};
-for(const m of MED)d.media.push({...m,dataUrl:await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(m.blob);})});
-const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));a.download='uniboard-backup.json';a.click();toast('Копію завантажено','ok');}
-async function importBackup(f){if(!await cAsk('Імпорт замінить поточні дані?'))return;const d=JSON.parse(await f.text());
-for(const s of STORES)await DB.clear(s);
-for(const x of d.listings||[])await DB.put('listings',x);for(const x of d.publications||[])await DB.put('publications',x);for(const x of d.messages||[])await DB.put('messages',x);for(const x of d.events||[])await DB.put('events',x);
-for(const m of d.media||[]){const bl=await (await fetch(m.dataUrl)).blob();await DB.put('media',{...m,blob:bl});}
-await kvSet('profile',d.profile||{});await kvSet('conn',d.conn||{});await loadAll();render();toast('Імпортовано','ok');}
+'<div class="card"><button class="btn sec wide" onclick="go(\'events\')">📜 Журнал подій</button></div><div class="mut" style="text-align:center">UniBoard v4.1 · 19 платформ · офлайн</div>';}
+function saveProfile(){kvSet('profile',PROFILE).then(function(){toast('Збережено','ok');});}
+function exportBackup(){var d={listings:L,publications:PUB,messages:MSG,events:EV,profile:PROFILE,conn:CONN,media:[]};
+var p=Promise.resolve();MED.forEach(function(m){p=p.then(function(){return new Promise(function(r){var f=new FileReader();f.onload=function(){d.media.push(Object.assign({},m,{dataUrl:f.result}));r();};f.readAsDataURL(m.blob);});});});
+p.then(function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));a.download='uniboard-backup.json';a.click();toast('Копію завантажено','ok');});}
+function importBackup(f){cAsk('Імпорт замінить поточні дані?').then(function(ok){if(!ok)return;
+f.text().then(function(t){var d=JSON.parse(t);var p=Promise.resolve();STORES.forEach(function(s){p=p.then(function(){return DB.clear(s);});});
+(d.listings||[]).forEach(function(x){p=p.then(function(){return DB.put('listings',x);});});
+(d.publications||[]).forEach(function(x){p=p.then(function(){return DB.put('publications',x);});});
+(d.messages||[]).forEach(function(x){p=p.then(function(){return DB.put('messages',x);});});
+(d.events||[]).forEach(function(x){p=p.then(function(){return DB.put('events',x);});});
+(d.media||[]).forEach(function(m){p=p.then(function(){return fetch(m.dataUrl).then(function(r){return r.blob();}).then(function(bl){return DB.put('media',Object.assign({},m,{blob:bl}));});});});
+p.then(function(){return kvSet('profile',d.profile||{});}).then(function(){return kvSet('conn',d.conn||{});}).then(function(){return loadAll();}).then(render).then(function(){toast('Імпортовано','ok');});});});}
 /* ===== СТАРТ ===== */
-(async function(){
-if(location.protocol.startsWith('http')&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
-if(location.hash.startsWith('#v=')){try{const o=JSON.parse(await gunzipB(unb64u(location.hash.slice(3))));await loadAll();renderPublic(o);return;}catch(e){location.hash='';}}
-try{await loadAll();}catch(e){document.getElementById('view').innerHTML='<div class="empty">❌ Сховище недоступне. Відкрийте через https:// або встановлений PWA.</div>';return;}
-render();maybeOnboard();startPoll();
+(function(){
+if(location.protocol.indexOf('http')===0&&'serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
+var boot=Promise.resolve();
+if(location.hash.indexOf('#v=')===0){boot=decodeLink(location.hash.slice(3)).then(function(t){return JSON.parse(t);}).then(function(o){return loadAll().then(function(){renderPublic(o);});}).catch(function(){location.hash='';return loadAll().then(render);});}
+else boot=loadAll().then(render);
+boot.then(function(){maybeOnboard();startPoll();}).catch(function(e){showErr('start: '+e.message);});
 })();
 </script>
 </body>
