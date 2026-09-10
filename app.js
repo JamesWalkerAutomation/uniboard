@@ -1,4 +1,4 @@
-// app.js v4.2 — короткі рядки, безпечне копіювання
+// app.js v4.3 — дизайн v2, "Задармо", без FAB
 "use strict";
 window.addEventListener('error', function (e) {
   showErr('Помилка: ' + (e.message || '?') +
@@ -189,6 +189,10 @@ function fmtd(d) {
     day: '2-digit', month: '2-digit',
     hour: '2-digit', minute: '2-digit' });
 }
+function priceText(l) {
+  if (l.offerType === 'free') return 'Задармо';
+  return l.price + ' ' + l.currency;
+}
 function loadAll() {
   return Promise.all([DB.all('listings'), DB.all('media'),
     DB.all('publications'), DB.all('messages'),
@@ -317,8 +321,9 @@ function maybeOnboard() {
   kvGet('onboard', false).then(function (done) {
     if (done) return;
     showModal('<div style="text-align:center;' +
-      'padding:10px 0"><div style="font-size:52px">🇺🇦</div>' +
-      '<h3 style="margin:8px 0">Вітаємо в UniBoard!</h3>' +
+      'padding:10px 0">' +
+      '<img src="icon.svg" width="64" height="64" alt="">' +
+      '<h3 style="margin:10px 0">Вітаємо в UniBoard!</h3>' +
       '<p class="mut">1️⃣ Створіть оголошення з фото<br>' +
       '2️⃣ Оберіть платформи (19 доступних)<br>' +
       '3️⃣ Додаток адаптує текст і опублікує<br><br>' +
@@ -352,16 +357,18 @@ function vListings() {
   }
   var h = '';
   h += '<div class="row" style="margin-bottom:8px">';
-  h += '<input class="input" placeholder="🔍 Пошук..."';
+  h += '<div class="sbox"><span class="si">🔍</span>';
+  h += '<input class="input" placeholder="Пошук..."';
   h += ' value="' + esc(search) + '"';
-  h += ' oninput="search=this.value;render()">';
-  h += '<select class="input" style="max-width:130px"';
+  h += ' oninput="search=this.value;render()"></div>';
+  h += '<select class="input" style="max-width:128px"';
   h += ' onchange="sortB=this.value;sortListings();render()">';
   h += '<option value="new"';
   h += (sortB === 'new' ? ' selected' : '') + '>Нові</option>';
   h += '<option value="price"';
   h += (sortB === 'price' ? ' selected' : '');
   h += '>За ціною</option></select></div>';
+  h += '<div class="chipsrow">';
   var chips = [['all', 'Всі ' + L.length],
     ['draft', 'Чернетки'], ['published', 'Опубліковані'],
     ['needs_action', 'Потребує дії'],
@@ -372,11 +379,12 @@ function vListings() {
     h += '" onclick="fSt=\'' + c[0] + '\';render()">';
     h += c[1] + '</span>';
   }
+  h += '</div>';
   if (sel.length) {
-    h += '<div class="card" style="background:#eff6ff">';
+    h += '<div class="card" style="background:var(--soft)">';
     h += '<div class="row">';
     h += '<button class="btn sm green" onclick="openPublish(sel)">▶ (' + sel.length + ')</button>';
-    h += '<button class="btn sm" style="background:#fef9c3;color:#a16207" onclick="bulkPause()">⏸</button>';
+    h += '<button class="btn sm" style="background:#FEF9C3;color:#A16207" onclick="bulkPause()">⏸</button>';
     h += '<button class="btn sm danger" onclick="bulkDelete()">🗑</button>';
     h += '<button class="btn sm sec" onclick="sel=[];render()">✕</button>';
     h += '</div></div>';
@@ -403,16 +411,16 @@ function cardHtml(l) {
   h += ' onchange="togSel(' + l.id + ')">';
   if (mn) h += '<img src="' + murl(mn) + '">';
   else {
-    h += '<div style="width:64px;height:64px;';
-    h += 'background:#eef2f7;border-radius:10px;';
+    h += '<div style="width:72px;height:72px;';
+    h += 'background:#F1F2F6;border-radius:14px;';
     h += 'display:flex;align-items:center;';
-    h += 'justify-content:center">🖼</div>';
+    h += 'justify-content:center;font-size:24px">🖼</div>';
   }
   h += '<div style="flex:1;min-width:0">';
   h += '<div class="ltitle">' + esc(l.title) + '</div>';
-  h += '<div class="lprice">' + l.price + ' ' + l.currency;
-  h += ' · ' + new Date(l.createdAt).toLocaleDateString('uk-UA');
-  h += '</div><div style="margin-top:4px">';
+  h += '<div class="lprice"><b>' + priceText(l) + '</b> · ';
+  h += new Date(l.createdAt).toLocaleDateString('uk-UA');
+  h += '</div><div style="margin-top:5px">';
   for (var i = 0; i < ps.length; i++) {
     var st = STATUS[ps[i].status] || [ps[i].status, ''];
     h += '<span class="chip ' + st[1] + '">';
@@ -422,16 +430,16 @@ function cardHtml(l) {
     h += '<span class="chip pau">⏸ Призупинено</span>';
   }
   h += '</div><div class="acts">';
-  h += '<button class="btn sm green" onclick="openPublish([';
-  h += l.id + '])">▶</button>';
-  h += '<button class="btn sm sec" onclick="go(\'edit\',';
-  h += l.id + ')">✏️</button>';
-  h += '<button class="btn sm sec" onclick="shareNative(';
-  h += l.id + ')">📤</button>';
-  h += '<button class="btn sm sec" onclick="dup(' + l.id;
-  h += ')">📋</button>';
-  h += '<button class="btn sm danger" onclick="delListing(';
-  h += l.id + ')">🗑</button>';
+  h += '<button class="abtn pri" onclick="openPublish([';
+  h += l.id + '])">▶ Публікація</button>';
+  h += '<button class="abtn" onclick="go(\'edit\',';
+  h += l.id + ')" title="Редагувати">✏️</button>';
+  h += '<button class="abtn" onclick="shareNative(';
+  h += l.id + ')" title="Поділитися">📤</button>';
+  h += '<button class="abtn" onclick="dup(' + l.id;
+  h += ')" title="Дублювати">📋</button>';
+  h += '<button class="abtn danger" onclick="delListing(';
+  h += l.id + ')" title="Видалити">🗑</button>';
   h += '</div></div></div></div>';
   return h;
 }
@@ -510,7 +518,7 @@ function bulkPause() {
 function shareNative(id) {
   DB.get('listings', id).then(function (l) {
     return pubLink(l).then(function (u) {
-      var t = l.title + ' — ' + l.price + ' ' + l.currency;
+      var t = l.title + ' — ' + priceText(l);
       if (navigator.share) {
         navigator.share({ title: t, text: t, url: u })
           .catch(function () {});
@@ -546,7 +554,9 @@ function quality() {
   else iss.push('Заголовок короткий');
   if ((F.description || '').length >= 100) s += 30;
   else iss.push('Опис короткий');
-  if (+F.price > 0) s += 15; else iss.push('Вкажіть ціну');
+  if (F.offerType === 'free') s += 15;
+  else if (+F.price > 0) s += 15;
+  else iss.push('Вкажіть ціну');
   if (F.location) s += 10;
   if (editMedia.length >= 3) s += 15;
   else if (editMedia.length) s += 5;
@@ -555,9 +565,12 @@ function quality() {
 }
 function vEdit() {
   var q = quality();
+  var free = (F.offerType === 'free');
   var h = '';
-  h += '<button class="btn sm sec" onclick="go(\'listings\')">← Назад</button>';
+  h += '<button class="btn sm sec"';
+  h += ' onclick="go(\'listings\')">← Назад</button>';
   h += '<div class="card" style="margin-top:10px">';
+  h += '<div class="gtitle">Основне</div>';
   h += '<label class="label">Заголовок *</label>';
   h += '<div class="row"><input class="input" value="';
   h += esc(F.title) + '" maxlength="200"';
@@ -566,9 +579,12 @@ function vEdit() {
   h += '<label class="label">Опис *</label>';
   h += '<textarea rows="6"';
   h += ' oninput="F.description=this.value;qRefresh()">';
-  h += esc(F.description) + '</textarea>';
+  h += esc(F.description) + '</textarea></div>';
+  h += '<div class="card"><div class="gtitle">Параметри</div>';
   h += '<div class="grid2">';
-  h += '<div><label class="label">Ціна *</label>';
+  h += '<div><label class="label">';
+  h += free ? 'Ціна (необов\'язково)' : 'Ціна *';
+  h += '</label>';
   h += '<input class="input" type="number" value="';
   h += esc(F.price) + '"';
   h += ' oninput="F.price=this.value;qRefresh()"></div>';
@@ -587,8 +603,9 @@ function vEdit() {
     h += '>' + CATS[i] + '</option>';
   }
   h += '</select></div>';
-  h += '<div><label class="label">Тип</label>';
-  h += '<select onchange="F.offerType=this.value">';
+  h += '<div><label class="label">Тип пропозиції</label>';
+  h += '<select';
+  h += ' onchange="F.offerType=this.value;render()">';
   h += '<option value="sale"';
   h += (F.offerType === 'sale' ? ' selected' : '');
   h += '>Продаж</option><option value="rent"';
@@ -597,7 +614,7 @@ function vEdit() {
   h += (F.offerType === 'exchange' ? ' selected' : '');
   h += '>Обмін</option><option value="free"';
   h += (F.offerType === 'free' ? ' selected' : '');
-  h += '>Дарма</option></select></div>';
+  h += '>Задармо</option></select></div>';
   h += '<div><label class="label">Стан</label>';
   h += '<select onchange="F.condition=this.value">';
   h += '<option value="new"';
@@ -619,8 +636,8 @@ function vEdit() {
   h += '</div>';
   h += '<label class="label">Доставка</label>';
   h += '<input class="input" value="' + esc(F.delivery) + '"';
-  h += ' oninput="F.delivery=this.value">';
-  h += '<label class="label">Фото</label>';
+  h += ' oninput="F.delivery=this.value"></div>';
+  h += '<div class="card"><div class="gtitle">Фото</div>';
   if (editMedia.length) {
     h += '<div class="mgrid">';
     for (var m = 0; m < editMedia.length; m++) {
@@ -639,22 +656,23 @@ function vEdit() {
   h += ' onchange="addFiles(this.files)">';
   h += '<button class="btn sec wide"';
   h += ' onclick="document.getElementById(\'fin\').click()">';
-  h += '📷 Додати фото/відео</button>';
-  h += '<div style="margin-top:14px" class="row">';
-  h += '<button class="btn wide" onclick="saveListing()">💾 Зберегти</button>';
+  h += '📷 Додати фото/відео</button></div>';
+  h += '<div class="savebar">';
+  h += '<button class="btn" style="flex:2"';
+  h += ' onclick="saveListing()">💾 Зберегти</button>';
   if (editing) {
-    h += '<button class="btn green" onclick="openPublish([';
-    h += editing + '])">▶</button>';
-    h += '<button class="btn sec" onclick="shareNative(';
-    h += editing + ')">📤</button>';
+    h += '<button class="btn green" style="flex:2"';
+    h += ' onclick="openPublish([' + editing + '])">▶</button>';
+    h += '<button class="btn sec" style="flex:1"';
+    h += ' onclick="shareNative(' + editing + ')">📤</button>';
   }
-  h += '</div></div>';
-  h += '<div class="card"><b style="font-size:13px">✨ Якість: ';
-  h += '<span id="qs" style="color:var(--blue)">';
-  h += q.s + '/100</span></b>';
-  h += '<div style="background:#e2e8f0;height:6px;';
-  h += 'border-radius:3px;margin:8px 0">';
-  h += '<div id="qb" style="background:var(--blue);height:6px;';
+  h += '</div>';
+  h += '<div class="card"><div class="gtitle">✨ Якість: ';
+  h += '<span id="qs" style="color:var(--pri)">';
+  h += q.s + '/100</span></div>';
+  h += '<div style="background:#E5E7EB;height:6px;';
+  h += 'border-radius:3px;margin:4px 0 8px">';
+  h += '<div id="qb" style="background:var(--pri);height:6px;';
   h += 'border-radius:3px;width:' + q.s + '%"></div></div>';
   h += '<div id="qi">';
   for (var k = 0; k < q.iss.length; k++) {
@@ -738,10 +756,13 @@ function saveListing() {
   if (!F.description || F.description.length < 10) {
     return toast('Опис ≥10 символів', 'err');
   }
-  if (!(+F.price > 0)) return toast('Вкажіть ціну', 'err');
+  if (F.offerType !== 'free' && !(+F.price > 0)) {
+    return toast('Вкажіть ціну', 'err');
+  }
   var now = Date.now();
-  var rec = Object.assign({}, F, { price: +F.price,
-    updatedAt: now, status: F.status || 'draft' });
+  var rec = Object.assign({}, F, {
+    price: +F.price || 0, updatedAt: now,
+    status: F.status || 'draft' });
   var id = editing;
   var chain = Promise.resolve();
   if (id) {
@@ -786,8 +807,8 @@ function saveListing() {
 function vPubs(id) {
   var ps = pubsOf(id);
   if (!ps.length) return '';
-  var h = '<div class="card"><b style="font-size:13px">';
-  h += '🎯 Центр публікацій</b>';
+  var h = '<div class="card"><div class="gtitle">';
+  h += '🎯 Центр публікацій</div>';
   for (var i = 0; i < ps.length; i++) {
     var p = ps[i];
     var pf = plOf(p.platformCode);
@@ -915,7 +936,8 @@ function pubLink(l) {
   }
   return chain.then(function (ph) {
     var o = { t: l.title, d: l.description, p: l.price,
-      c: l.currency, cat: l.category, loc: l.location,
+      c: l.currency, fr: l.offerType === 'free' ? 1 : 0,
+      cat: l.category, loc: l.location,
       ct: { ph: PROFILE.phone, em: PROFILE.email,
         tg: PROFILE.tg }, ph: ph };
     var j = JSON.stringify(o);
@@ -950,11 +972,13 @@ function renderPublic(o) {
   var h = '<div class="card" style="margin-top:20px">';
   if (o.ph && o.ph[0]) {
     h += '<img src="' + o.ph[0] + '"';
-    h += ' style="width:100%;border-radius:12px;';
+    h += ' style="width:100%;border-radius:14px;';
     h += 'margin-bottom:12px">';
   }
   h += '<div class="pubhero" style="margin:-14px -14px 12px">';
-  h += '<div class="p">' + o.p + ' ' + o.c + '</div>';
+  h += '<div class="p">';
+  h += o.fr ? 'Задармо' : (o.p + ' ' + o.c);
+  h += '</div>';
   h += '<div style="font-size:18px;font-weight:700">';
   h += esc(o.t) + '</div></div>';
   h += '<div class="chip">' + esc(o.cat || '') + '</div>';
@@ -980,7 +1004,7 @@ function renderPublic(o) {
   h += '<button class="btn sec wide" onclick="importPublic()">';
   h += '💾 Зберегти в мій UniBoard</button>';
   h += '<div class="mut" style="text-align:center;';
-  h += 'margin-top:8px">🇺🇦 UniBoard</div></div></div>';
+  h += 'margin-top:8px">UniBoard</div></div></div>';
   document.getElementById('view').innerHTML = h;
   window._pub = o;
 }
@@ -989,9 +1013,10 @@ function importPublic() {
   if (!o) return;
   var now = Date.now();
   DB.put('listings', { title: o.t, description: o.d,
-    price: o.p, currency: o.c, category: o.cat,
-    location: o.loc, offerType: 'sale', condition: 'used',
-    brand: '', model: '', delivery: '',
+    price: o.p || 0, currency: o.c,
+    offerType: o.fr ? 'free' : 'sale',
+    category: o.cat, location: o.loc,
+    condition: 'used', brand: '', model: '', delivery: '',
     createdAt: now, updatedAt: now, status: 'draft' })
     .then(function (id) {
       var chain = Promise.resolve();
@@ -1034,19 +1059,22 @@ function adapt(l, code) {
   }
   var cond = { new: 'новий', used: 'вживаний',
     ref: 'відновлений' }[l.condition] || '-';
-  var plain = t + '\n\n💰 ' + l.price + ' ' + l.currency +
-    '\n📦 ' + cond + '\n📍 ' + (l.location || '-') +
+  var pl = (l.offerType === 'free')
+    ? '🎁 Задармо'
+    : '💰 ' + l.price + ' ' + l.currency;
+  var plain = t + '\n\n' + pl + '\n📦 ' + cond +
+    '\n📍 ' + (l.location || '-') +
     '\n🚚 ' + (l.delivery || '-') +
     '\n📞 ' + (PROFILE.phone || '-') + '\n\n' + d;
   if (code === 'telegram') {
-    return { text: '<b>' + esc(t) + '</b>\n\n💰 ' +
-      l.price + ' ' + l.currency + '\n📍 ' +
-      esc(l.location || '-') + '\n📞 ' +
+    return { text: '<b>' + esc(t) + '</b>\n\n' + pl +
+      '\n📍 ' + esc(l.location || '-') + '\n📞 ' +
       esc(PROFILE.phone || '-') + '\n\n' + esc(d),
       warn: w };
   }
   if (code === 'mastodon') {
-    var m = t + '\n' + l.price + ' ' + l.currency +
+    var m = t + '\n' +
+      (l.offerType === 'free' ? 'Задармо' : pl) +
       ' · ' + (l.location || '') + '\n' + d;
     if (m.length > 500) {
       m = m.slice(0, 497) + '...';
@@ -1177,7 +1205,7 @@ function doPublishOne(l, code, ex) {
       }
     } else if (p.grp === 'share') {
       chain = pubLink(l).then(function (u) {
-        var t = l.title + ' — ' + l.price + ' ' + l.currency;
+        var t = l.title + ' — ' + priceText(l);
         var url = p.share
           .replace('{U}', encodeURIComponent(u))
           .replace('{T}', encodeURIComponent(t));
@@ -1447,7 +1475,7 @@ function vMessages() {
     var last = arr[arr.length - 1];
     var un = arr.some(function (m) { return !m.read; });
     h += '<div class="card" style="' +
-      (un ? 'background:#eff6ff' : '') + '"';
+      (un ? 'background:var(--soft)' : '') + '"';
     h += ' onclick="openThread(' + i + ')">';
     h += '<div class="pf" style="border:none;padding:0"><div>';
     h += '<span class="n">' + (un ? '🔵 ' : '');
@@ -1487,7 +1515,7 @@ function openThread(i) {
   for (var j = 0; j < arr.length; j++) {
     var m = arr[j];
     h += '<div class="card" style="margin:6px 0;';
-    h += (m.out ? 'background:#eff6ff' : '') + '">';
+    h += (m.out ? 'background:var(--soft)' : '') + '">';
     h += '<div class="mut" style="font-size:10px">';
     h += (m.out ? 'Ви → ' : '') + fmtd(m.at) + '</div>';
     h += esc(m.text) + '</div>';
@@ -1592,7 +1620,7 @@ function vStats() {
     h += cards[i][1] + '</div></div>';
   }
   h += '</div><div class="card" style="margin-top:12px">';
-  h += '<b style="font-size:13px">По платформах</b>';
+  h += '<div class="gtitle">По платформах</div>';
   var ks = Object.keys(byPl);
   if (!ks.length) h += '<div class="mut">Немає даних</div>';
   for (var j = 0; j < ks.length; j++) {
@@ -1603,9 +1631,9 @@ function vStats() {
     h += 'justify-content:space-between;font-size:12px">';
     h += '<span>' + p.icon + ' ' + esc(p.name) + '</span>';
     h += '<span>' + n + '</span></div>';
-    h += '<div style="background:#e2e8f0;height:8px;';
+    h += '<div style="background:#E5E7EB;height:8px;';
     h += 'border-radius:4px;margin-top:3px">';
-    h += '<div style="background:var(--blue);height:8px;';
+    h += '<div style="background:var(--pri);height:8px;';
     h += 'border-radius:4px;width:' +
       Math.round(n / mx * 100) + '%"></div></div></div>';
   }
@@ -1613,7 +1641,9 @@ function vStats() {
 }
 function vEvents() {
   var h = '<div class="h2">Журнал подій</div>';
-  if (!EV.length) return h + '<div class="empty">Подій немає</div>';
+  if (!EV.length) {
+    return h + '<div class="empty">Подій немає</div>';
+  }
   for (var i = 0; i < EV.length; i++) {
     h += '<div class="ev"><span class="t">';
     h += fmtd(EV[i].at) + '</span><span>';
@@ -1626,9 +1656,12 @@ window.addEventListener('beforeinstallprompt', function (e) {
   e.preventDefault();
   deferredPrompt = e;
 });
-function installApp() { if (deferredPrompt) deferredPrompt.prompt(); }
+function installApp() {
+  if (deferredPrompt) deferredPrompt.prompt();
+}
 function vProfile() {
   var h = '<div class="h2">Профіль</div><div class="card">';
+  h += '<div class="gtitle">Контакти продавця</div>';
   h += '<label class="label">Ім\'я</label>';
   h += '<input class="input" value="' + esc(PROFILE.name) + '"';
   h += ' oninput="PROFILE.name=this.value">';
@@ -1650,9 +1683,9 @@ function vProfile() {
   h += ' oninput="PROFILE.delivery=this.value">';
   h += '<button class="btn wide" style="margin-top:12px"';
   h += ' onclick="saveProfile()">💾 Зберегти</button></div>';
-  h += '<div class="card"><b style="font-size:13px">';
-  h += '📲 Встановити додаток</b>';
-  h += '<div class="mut" style="margin:6px 0">';
+  h += '<div class="card"><div class="gtitle">';
+  h += '📲 Встановити додаток</div>';
+  h += '<div class="mut" style="margin:0 0 8px">';
   h += 'Android: ⋮ → «Додати на головний екран»<br>';
   h += 'iOS: Поділитися → «На головний екран»</div>';
   if (deferredPrompt) {
@@ -1661,8 +1694,8 @@ function vProfile() {
     h += '<div class="mut">Використовуйте меню браузера</div>';
   }
   h += '</div><div class="card">';
-  h += '<b style="font-size:13px">💾 Резервна копія</b>';
-  h += '<div class="mut" style="margin:6px 0">';
+  h += '<div class="gtitle">💾 Резервна копія</div>';
+  h += '<div class="mut" style="margin:0 0 8px">';
   h += 'Перенесення між пристроями</div><div class="row">';
   h += '<button class="btn sec" onclick="exportBackup()">⬇ Експорт</button>';
   h += '<button class="btn sec" onclick="document.getElementById(\'imp\').click()">⬆ Імпорт</button></div>';
@@ -1672,7 +1705,7 @@ function vProfile() {
   h += '<div class="card"><button class="btn sec wide"';
   h += ' onclick="go(\'events\')">📜 Журнал подій</button></div>';
   h += '<div class="mut" style="text-align:center">';
-  h += 'UniBoard v4.2 · 19 платформ · офлайн</div>';
+  h += 'UniBoard v4.3 · 19 платформ · офлайн</div>';
   return h;
 }
 function saveProfile() {
